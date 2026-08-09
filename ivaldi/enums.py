@@ -1,0 +1,72 @@
+from enum import StrEnum
+
+
+class UV_ARTIFACTS(StrEnum):
+    MACOS = "uv-aarch64-apple-darwin.tar.gz"
+    MACOS_INTEL = "uv-x86_64-apple-darwin.tar.gz"
+    WINDOWS_ARM = "uv-aarch64-pc-windows-msvc.zip"
+    WINDOWS_X86 = "uv-i686-pc-windows-msvc.zip"
+    WINDOWS_X64 = "uv-x86_64-pc-windows-msvc.zip"
+    LINUX_ARM64 = "uv-aarch64-unknown-linux-gnu.tar.gz"
+    LINUX_X86 = "uv-i686-unknown-linux-gnu.tar.gz"
+    LINUX_PPC64LE = "uv-powerpc64le-unknown-linux-gnu.tar.gz"
+    LINUX_RISCV = "uv-riscv64gc-unknown-linux-gnu.tar.gz"
+    LINUX_S390X = "uv-s390x-unknown-linux-gnu.tar.gz"
+    LINUX_X64 = "uv-x86_64-unknown-linux-gnu.tar.gz"
+    LINUX_ARMV7 = "uv-armv7-unknown-linux-gnueabihf.tar.gz"
+    LINUX_MUSL_ARM64 = "uv-aarch64-unknown-linux-musl.tar.gz"
+    LINUX_MUSL_X86 = "uv-i686-unknown-linux-musl.tar.gz"
+    LINUX_RISCV_MUSL = "uv-riscv64gc-unknown-linux-musl.tar.gz"
+    LINUX_MUSL_X64 = "uv-x86_64-unknown-linux-musl.tar.gz"
+    LINUX_MUSL_ARMV6 = "uv-arm-unknown-linux-musleabihf.tar.gz"
+    LINUX_MUSL_ARMV7 = "uv-armv7-unknown-linux-musleabihf.tar.gz"
+
+
+class UV_MACOS_ARTIFACTS(StrEnum):
+    ARM64 = UV_ARTIFACTS.MACOS
+    AARCH64 = UV_ARTIFACTS.MACOS
+    X86_64 = UV_ARTIFACTS.MACOS_INTEL
+    AMD64 = UV_ARTIFACTS.MACOS_INTEL
+
+
+class UV_WINDOWS_ARTIFACTS(StrEnum):
+    ARM64 = UV_ARTIFACTS.WINDOWS_ARM
+    AARCH64 = UV_ARTIFACTS.WINDOWS_ARM
+    X86 = UV_ARTIFACTS.WINDOWS_X86
+    I386 = UV_ARTIFACTS.WINDOWS_X86
+    I686 = UV_ARTIFACTS.WINDOWS_X86
+    AMD64 = UV_ARTIFACTS.WINDOWS_X64
+    X86_64 = UV_ARTIFACTS.WINDOWS_X64
+
+
+class UV_LINUX_ARTIFACTS(StrEnum):
+    ARM64 = UV_ARTIFACTS.LINUX_ARM64
+    AARCH64 = UV_ARTIFACTS.LINUX_ARM64
+    X86 = UV_ARTIFACTS.LINUX_X86
+    I386 = UV_ARTIFACTS.LINUX_X86
+    I686 = UV_ARTIFACTS.LINUX_X86
+    PPC64LE = UV_ARTIFACTS.LINUX_PPC64LE
+    POWERPC64LE = UV_ARTIFACTS.LINUX_PPC64LE
+    RISCV64 = UV_ARTIFACTS.LINUX_RISCV
+    RISCV64GC = UV_ARTIFACTS.LINUX_RISCV
+    S390X = UV_ARTIFACTS.LINUX_S390X
+    AMD64 = UV_ARTIFACTS.LINUX_X64
+    X86_64 = UV_ARTIFACTS.LINUX_X64
+    ARMV7 = UV_ARTIFACTS.LINUX_ARMV7
+    ARMV7L = UV_ARTIFACTS.LINUX_ARMV7
+
+
+class UV_LINUX_MUSL_ARTIFACTS(StrEnum):
+    ARM64 = UV_ARTIFACTS.LINUX_MUSL_ARM64
+    AARCH64 = UV_ARTIFACTS.LINUX_MUSL_ARM64
+    X86 = UV_ARTIFACTS.LINUX_MUSL_X86
+    I386 = UV_ARTIFACTS.LINUX_MUSL_X86
+    I686 = UV_ARTIFACTS.LINUX_MUSL_X86
+    RISCV64 = UV_ARTIFACTS.LINUX_RISCV_MUSL
+    RISCV64GC = UV_ARTIFACTS.LINUX_RISCV_MUSL
+    AMD64 = UV_ARTIFACTS.LINUX_MUSL_X64
+    X86_64 = UV_ARTIFACTS.LINUX_MUSL_X64
+    ARMV6 = UV_ARTIFACTS.LINUX_MUSL_ARMV6
+    ARMV6L = UV_ARTIFACTS.LINUX_MUSL_ARMV6
+    ARMV7 = UV_ARTIFACTS.LINUX_MUSL_ARMV7
+    ARMV7L = UV_ARTIFACTS.LINUX_MUSL_ARMV7
