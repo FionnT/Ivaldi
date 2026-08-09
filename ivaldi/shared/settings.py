@@ -1,7 +1,7 @@
 import tomllib
 from pathlib import Path
 
-from ivaldi.settings import UV, UVX, App, Directories, Platform, Poetry, Python, Settings
+from ivaldi.types.settings import UV, UVX, App, Directories, Platform, Python, Settings
 
 
 def find_build_file(start: Path | None = None) -> Path:
@@ -19,8 +19,21 @@ def find_build_file(start: Path | None = None) -> Path:
     raise FileNotFoundError(f"Could not find ivaldi.toml in {directory} or any parent directory")
 
 
-def load_settings(platform):
-    file, project_folder = find_build_file()
+def load_settings(location, build=False):
+    platform = None
+    dist = None
+    stage = None
+
+    if build:
+        file, project_folder = find_build_file()
+        dist = location / "dist"
+        stage = location / "stage"
+        dist.mkdir(exist_ok=True, parents=True)
+        stage.mkdir(exist_ok=True, parents=True)
+    else:
+        file = location / "ivaldi.toml"
+        project_folder = location
+        platform = platform.system().lower()
 
     with open(file, "rb") as f:
         config = tomllib.load(f)
@@ -28,29 +41,33 @@ def load_settings(platform):
         try:
             uv = UV(**config.get("uv", {}))
             uvx = UVX(**config.get("uvx", {}))
-            poetry = Poetry(**config.get("poetry", {}))
             python = Python(**config.get("python", {}))
             app = App(**config.get("app", {}))
-            platform = Platform(**config.get(platform, {}))
-            dirs = Directories(project=project_folder)
+            dirs = Directories(project=project_folder, dist=dist, stage=stage)
+
+            if platform:
+                platform = Platform(**config.get(platform, {}))
+
         except TypeError as err:
             f = str(err).replace(".__init__()", "")
             raise KeyError(f)
 
-        settings = Settings(app=app, python=python, poetry=poetry, uv=uv, uvx=uvx, dirs=dirs, platform=platform)
+        settings = Settings(app=app, python=python, uv=uv, uvx=uvx, dirs=dirs)
 
         return settings
 
 
-def load_directories(settings: Settings, app_data: Path, exec_dir: Path):
+def load_install_directories(settings: Settings, app_data: Path, exec_dir: Path):
     bin = app_data / "bin"
     uv_cache = app_data / "cache"
     build = app_data / "build"
+    dist = app_data / "dist"
 
     app_data.mkdir(exist_ok=True, parents=True)
     bin.mkdir(exist_ok=True, parents=True)
     uv_cache.mkdir(exist_ok=True, parents=True)
     exec_dir.mkdir(exist_ok=True, parents=True)
+    dist.mkdir(exist_ok=True, parents=True)
 
     settings.dirs.bin = bin
     settings.dirs.uv = uv_cache

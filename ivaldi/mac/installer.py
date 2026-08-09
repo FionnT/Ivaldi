@@ -1,10 +1,15 @@
-from ivaldi.shared.collect import collect
-from ivaldi.shared.python import install as install_python
-from ivaldi.shared.uv import install as install_uv
+from pathlib import Path
+
+from ivaldi.shared.python import install_python
+from ivaldi.shared.settings import load_directories, load_settings
+from ivaldi.shared.uv import install_uv
 
 
-def Install(settings):
+def Install(location):
+    settings = load_settings("location")
+    settings = load_directories(settings, app_data, exec_dir)
 
+    app_data = Path.home() / "Library" / "Application Support" / settings.platform.location
+    exec_dir = (Path.home() / "bin").resolve()
     install_uv(settings)
     install_python(settings)
-    collect(settings)

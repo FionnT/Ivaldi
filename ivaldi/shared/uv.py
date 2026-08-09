@@ -6,14 +6,14 @@ from pathlib import Path
 
 import requests
 
-from ivaldi.settings import Settings
 from ivaldi.shared.extract import extract
+from ivaldi.types.enums import UV_ARTIFACTS, UV_LINUX_ARTIFACTS, UV_LINUX_MUSL_ARTIFACTS, UV_MACOS_ARTIFACTS, UV_WINDOWS_ARTIFACTS
+from ivaldi.types.settings import Settings
 
 logger = logging.getLogger(__name__)
 
 
 def resolve_release():
-    from ivaldi.enums import UV_ARTIFACTS, UV_LINUX_ARTIFACTS, UV_LINUX_MUSL_ARTIFACTS, UV_MACOS_ARTIFACTS, UV_WINDOWS_ARTIFACTS
 
     system = platform.system()
     machine = platform.machine().upper()
@@ -36,7 +36,7 @@ def resolve_release():
     return UV_ARTIFACTS(artifact)
 
 
-def install(settings: Settings):
+def install_uv(settings: Settings):
 
     repo = settings.uv.repo
     version = settings.uv.version

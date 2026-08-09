@@ -4,7 +4,7 @@ import subprocess
 logger = logging.getLogger(__name__)
 
 
-def install(settings):
+def install_python(settings):
 
     uv = f"{settings.bin.uv.resolve()!s}"
     dir = f"{settings.dirs.app.resolve()!s}"

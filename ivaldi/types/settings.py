@@ -65,12 +65,13 @@ class Platform:
 
 @dataclass
 class Directories:
-    uv: Path = None
-    bin: Path = None
-    app: Path = None
-    exec: Path = None
-    project: Path = None
-    build: Path = None
+    uv: Path = None  # The UV cache directory
+    bin: Path = None  # The bin dir that contains the uv and python executables
+    app: Path = None  # The location we will store the app in after install
+    exec: Path = None  # The location we will store the executable in (e.g. ~/.bin, ~/.local/bin, %APPDATA%/....)
+    project: Path = None  # The source project dir
+    stage: Path = None  # The staging directory for building
+    dist: Path = None  # The dir we ship with the executable, used for installing the program later
 
 
 @dataclass
@@ -86,7 +87,6 @@ class Settings:
     bin: Executables = field(default_factory=Executables)
     dirs: Directories = field(default_factory=Platform)
     platform: Platform = field(default_factory=Platform)
-    poetry: Poetry = field(default_factory=Poetry)
     python: Python = field(default_factory=Python)
     uv: UV = field(default_factory=UV)
     uvx: UVX = field(default_factory=UVX)
