@@ -1,17 +1,17 @@
-name: Publish to PyPI
+name: Publish to Test PyPi
 on:
-  release:
-    types: [released]
+  push:
+    branches: ["main"]
 jobs:
-  publish-to-pypi:
-    name: Publish Python to PyPI
+  publish-to-testpypi:
+    name: Publish Python to TestPyPI
     runs-on: ubuntu-latest
     permissions:
       contents: read
       id-token: write
     environment:
-      name: pypi
-      url: https://pypi.org/p/ivaldi
+      name: testpypi
+      url: https://test.pypi.org/p/ivaldi
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
@@ -26,5 +26,7 @@ jobs:
           cache: "poetry" # caching pip dependencies
       - run: poetry install --only main
       - run: poetry build
-      - name: Publish to PyPI
+      - name: Publish to TestPyPI
         uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
