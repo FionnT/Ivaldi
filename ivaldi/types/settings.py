@@ -11,6 +11,7 @@ class App:
 
         super().__init__()
 
+    version: str = "0.8.9"
     entrypoint: str = None
     include: ClassVar[list[str]] = []
     exclude: ClassVar[list[str]] = [

@@ -19,8 +19,8 @@ def find_build_file(start: Path | None = None) -> Path:
     raise FileNotFoundError(f"Could not find ivaldi.toml in {directory} or any parent directory")
 
 
-def load_settings(location, build=False):
-    platform = None
+def load_settings(location: Path, build=False):
+    run_platform = None
     dist = None
     stage = None
 
@@ -30,10 +30,14 @@ def load_settings(location, build=False):
         stage = location / "stage"
         dist.mkdir(exist_ok=True, parents=True)
         stage.mkdir(exist_ok=True, parents=True)
+        file.copy(dist / file.name)
     else:
-        file = location / "ivaldi.toml"
+        import platform
+
         project_folder = location
-        platform = platform.system().lower()
+        dist = project_folder / "dist"
+        file = dist / "ivaldi.toml"
+        run_platform = platform.system().lower()
 
     with open(file, "rb") as f:
         config = tomllib.load(f)
@@ -45,14 +49,14 @@ def load_settings(location, build=False):
             app = App(**config.get("app", {}))
             dirs = Directories(project=project_folder, dist=dist, stage=stage)
 
-            if platform:
-                platform = Platform(**config.get(platform, {}))
+            if run_platform:
+                run_platform = Platform(**config.get(run_platform, {}))
 
         except TypeError as err:
             f = str(err).replace(".__init__()", "")
             raise KeyError(f)
 
-        settings = Settings(app=app, python=python, uv=uv, uvx=uvx, dirs=dirs)
+        settings = Settings(app=app, python=python, uv=uv, uvx=uvx, dirs=dirs, platform=run_platform)
 
         return settings
 
@@ -73,5 +77,5 @@ def load_install_directories(settings: Settings, app_data: Path, exec_dir: Path)
     settings.dirs.uv = uv_cache
     settings.dirs.app = app_data
     settings.dirs.build = build
-    settings.exec = exec
+    settings.exec = exec_dir
     return settings

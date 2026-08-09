@@ -1,6 +1,10 @@
 from enum import StrEnum
 
 
+class IVALDI(StrEnum):
+    WHEEL_NAME = "ivaldi_built_wheel"
+
+
 class UV_ARTIFACTS(StrEnum):
     MACOS = "uv-aarch64-apple-darwin.tar.gz"
     MACOS_INTEL = "uv-x86_64-apple-darwin.tar.gz"

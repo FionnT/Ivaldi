@@ -6,6 +6,7 @@ from build.env import DefaultIsolatedEnv
 
 from ivaldi.shared.collect import collect
 from ivaldi.shared.settings import load_settings
+from ivaldi.types.enums import IVALDI
 
 
 def build(location: Path):
@@ -29,14 +30,14 @@ def build(location: Path):
         # Run the build using the isolated env runner
         builder.build(distribution="wheel", output_directory=settings.dirs.dist)
 
-        # Get additional requirements needed for specific outputs
-        reqs = builder.get_requires_for_build(
-            distribution="sdist",
-        )
-        env.install(reqs)
+        # # Get additional requirements needed for specific outputs
+        # reqs = builder.get_requires_for_build(
+        #     distribution="sdist",
+        # )
+        # env.install(reqs)
 
-        # Run the build using the isolated env runner
-        builder.build(distribution="sdist", output_directory=settings.dirs.dist)
+        # # Run the build using the isolated env runner
+        # builder.build(distribution="sdist", output_directory=settings.dirs.dist)
 
 
 def build_all_wheels(settings):

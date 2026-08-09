@@ -238,3 +238,5 @@ ivaldi/stage/*
 **/__pycache__
 __pycache__
 *.pyc
+**/*.pyc
+ivaldi/**/.pyc
