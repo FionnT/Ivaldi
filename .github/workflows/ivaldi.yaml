@@ -7,7 +7,11 @@ jobs:
     name: Publish Python to TestPyPI
     runs-on: ubuntu-latest
     permissions:
-      id-token: write # IMPORTANT: mandatory for trusted publishing
+      contents: read
+      id-token: write
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/ivaldi
     steps:
       - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
         with:
@@ -21,5 +25,8 @@ jobs:
           python-version: "3.14"
           cache: "poetry" # caching pip dependencies
       - run: poetry install --only main
-      - run: poetry config repositories.pytest https://test.pypi.org/simple/
-      - run: poetry publish --build --repository pytest
+      - run: poetry build
+      - name: Publish to TestPyPI
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
