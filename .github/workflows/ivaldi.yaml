@@ -14,12 +14,12 @@ jobs:
           submodules: "true"
           fetch-depth: 0
           token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Install poetry
+        run: pipx install poetry
       - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
         with:
           python-version: "3.14"
           cache: "poetry" # caching pip dependencies
-      - name: Install poetry
-        run: pipx install poetry
       - run: poetry install --only main
       - run: poetry config repositories.pytest https://test.pypi.org/p/ivaldi
       - run: poetry publish --build --repository pytest
