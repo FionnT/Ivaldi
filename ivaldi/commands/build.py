@@ -6,7 +6,6 @@ from build.env import DefaultIsolatedEnv
 
 from ivaldi.shared.collect import collect
 from ivaldi.shared.settings import load_settings
-from ivaldi.types.enums import IVALDI
 
 
 def build(location: Path):

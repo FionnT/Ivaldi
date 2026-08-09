@@ -1,28 +1,44 @@
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import ClassVar
+
+
+@dataclass
+class AppBuild:
+    include_wheels: bool = False
+    all_extras: bool = False
+
+
+@dataclass
+class AppInstall:
+    strict: bool = False
+    exact: bool = False
+    compile_bytecode: bool = True
 
 
 @dataclass
 class App:
-    def __init__(self, *args: tuple[str], **kwargs: dict[str, str]):
-        self.exclude = kwargs.pop("exclude")
-        self.include = kwargs.pop("include")
-
-        super().__init__()
+    def __post_init__(self):
+        if isinstance(self.build, dict):
+            self.build = AppBuild(**self.build)
+        if isinstance(self.install, dict):
+            self.install = AppInstall(**self.install)
 
     version: str = "0.8.9"
     entrypoint: str = None
-    include: ClassVar[list[str]] = []
-    exclude: ClassVar[list[str]] = [
-        "**/__pycache__/**",  # Python cache
-        ".venv/**/*",  # Virtual environment
-        ".git/**/*",  # Git directory
-        "**/tests/**",  # Test files
-        "**/*.pyc",  # Compiled Python files
-        "**/*.pyo",
-        "**/*.pyd",
-    ]
+    include: list[str] = field(default_factory=list)
+    exclude: list[str] = field(
+        default_factory=lambda: [
+            "**/__pycache__/**",  # Python cache
+            ".venv/**/*",  # Virtual environment
+            ".git/**/*",  # Git directory
+            "**/tests/**",  # Test files
+            "**/*.pyc",  # Compiled Python files
+            "**/*.pyo",
+            "**/*.pyd",
+        ]
+    )
+    build: AppBuild | dict = field(default_factory=AppBuild)
+    install: AppInstall | dict = field(default_factory=AppInstall)
 
 
 @dataclass
@@ -73,6 +89,7 @@ class Directories:
     project: Path = None  # The source project dir
     stage: Path = None  # The staging directory for building
     dist: Path = None  # The dir we ship with the executable, used for installing the program later
+    venv: Path = None  # The application virtual environment
 
 
 @dataclass

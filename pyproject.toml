@@ -17,6 +17,7 @@ dependencies = [
 ]
 
 [project.scripts]
+ivaldi = "ivaldi:main"
 build = "ivaldi:build"
 run = "ivaldi:run"
 install = "ivaldi:install"
@@ -51,7 +52,6 @@ product-name = "Ivaldi Installer"
 file-description = "Creates a portable executable version of your project"
 
 # # Runtime optimisations
-# onefile-tempdir-spec = "{CACHE_DIR}/Neo4j/neoterm-installer"
 # onefile-cache-mode = "cached"
 
 
@@ -63,4 +63,3 @@ dev = [
     "ruff (>=0.16.0,<0.17.0)",
     "pytest (>=9.0.2,<10.0.0)",
 ]
-

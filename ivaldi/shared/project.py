@@ -12,8 +12,17 @@ def install_project(settings):
 
     wheel_location = f"{wheel_location.resolve()!s}"
     uv = f"{settings.bin.uv.resolve()!s}"
+    python = f"{settings.bin.python.absolute()!s}"
     dist = f"{settings.dirs.dist.resolve()!s}"
     uv_cache = f"{settings.dirs.uv.resolve()!s}"
+
+    install_flags = []
+    if settings.app.install.compile_bytecode:
+        install_flags.append("--compile-bytecode")
+    if settings.app.install.exact:
+        install_flags.append("--exact")
+    if settings.app.install.strict:
+        install_flags.append("--strict")
 
     command = [
         uv,
@@ -23,17 +32,16 @@ def install_project(settings):
         wheel_location,
         "--cache-dir",
         uv_cache,
-        "--managed-python",
+        "--python",
+        python,
         "-q",
         "--no-config",
         "--no-cache",
-        "--compile-bytecode",
+        *install_flags,
         "--reinstall",
         "--no-sources",
         "--find-links",
         dist,
-        "--exact",
-        "--strict",
         "--no-break-system-packages",
         # "--all-extras",
         "--no-editable",

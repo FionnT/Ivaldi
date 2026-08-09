@@ -1,0 +1,50 @@
+from types import SimpleNamespace
+
+from ivaldi.commands.run import ENTRYPOINT_RUNNER, run
+
+
+def test_run_uses_installed_python_and_forwards_all_arguments(tmp_path, monkeypatch):
+    uv = tmp_path / "bin/uv"
+    python = tmp_path / "bin/cpython/bin/python"
+    cache = tmp_path / "cache"
+    app = tmp_path / "app"
+    settings = SimpleNamespace(
+        app=SimpleNamespace(entrypoint="someproject:main"),
+        bin=SimpleNamespace(uv=uv, python=python),
+        dirs=SimpleNamespace(uv=cache, app=app),
+    )
+    captured = {}
+
+    monkeypatch.setattr("ivaldi.commands.run.load_settings", lambda **kwargs: settings)
+    monkeypatch.setattr("ivaldi.commands.run.load_runtime_directories", lambda value: value)
+
+    def execute(command, **kwargs):
+        captured["command"] = command
+        captured["kwargs"] = kwargs
+        return SimpleNamespace(returncode=23)
+
+    monkeypatch.setattr("ivaldi.commands.run.subprocess.run", execute)
+
+    result = run(tmp_path, ["--verbose", "--output", "some file.txt"])
+
+    assert result == 23
+    assert captured["kwargs"]["cwd"] == app
+    assert captured["command"] == [
+        str(uv.resolve()),
+        "run",
+        "--python",
+        str(python.resolve()),
+        "--no-python-downloads",
+        "--no-config",
+        "--cache-dir",
+        str(cache.resolve()),
+        "--",
+        str(python.resolve()),
+        "-c",
+        ENTRYPOINT_RUNNER,
+        "someproject",
+        "main",
+        "--verbose",
+        "--output",
+        "some file.txt",
+    ]

@@ -1,3 +1,5 @@
+import os
+import platform
 import tomllib
 from pathlib import Path
 
@@ -78,4 +80,28 @@ def load_install_directories(settings: Settings, app_data: Path, exec_dir: Path)
     settings.dirs.app = app_data
     settings.dirs.build = build
     settings.exec = exec_dir
+    return settings
+
+
+def load_runtime_directories(settings):
+    system = platform.system()
+
+    if system == "Darwin":
+        app_data = Path.home() / "Library" / "Application Support" / settings.platform.location
+    elif system == "Windows":
+        app_data = Path(os.environ["APPDATA"]) / settings.platform.location
+    elif system == "Linux":
+        app_data = Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local" / "share")) / settings.platform.location
+    else:
+        raise RuntimeError(f"Unsupported platform: {system}")
+
+    settings.dirs.app = app_data
+    settings.dirs.bin = app_data / "bin"
+    settings.dirs.uv = app_data / "cache"
+    settings.dirs.venv = app_data / "venv"
+    settings.bin.uv = settings.dirs.bin / ("uv.exe" if system == "Windows" else "uv")
+    if system == "Windows":
+        settings.bin.python = settings.dirs.venv / "Scripts" / "python.exe"
+    else:
+        settings.bin.python = settings.dirs.venv / "bin" / "python"
     return settings

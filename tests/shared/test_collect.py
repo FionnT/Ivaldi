@@ -5,7 +5,7 @@ from ivaldi.shared.collect import collect
 
 def test_specific_include_supersedes_broader_exclude(tmp_path):
     project = tmp_path / "project"
-    build = tmp_path / "build"
+    stage = tmp_path / "stage"
     temp = project / "someproject/storage/temp"
     package = project / "someproject/package"
     temp.mkdir(parents=True)
@@ -23,7 +23,7 @@ def test_specific_include_supersedes_broader_exclude(tmp_path):
             include=["someproject/**/*", "someproject/storage/temp/**init**.py"],
             exclude=["someproject/storage/temp/*"],
         ),
-        dirs=SimpleNamespace(project=project, build=build),
+        dirs=SimpleNamespace(project=project, stage=stage),
     )
 
     collected = collect(settings)
@@ -31,5 +31,5 @@ def test_specific_include_supersedes_broader_exclude(tmp_path):
     assert init_file in collected
     assert excluded_file not in collected
     assert included_file in collected
-    assert (build / "someproject/storage/temp/__init__.py").is_file()
-    assert not (build / "someproject/storage/temp/cache.db").exists()
+    assert (stage / "someproject/storage/temp/__init__.py").is_file()
+    assert not (stage / "someproject/storage/temp/cache.db").exists()
