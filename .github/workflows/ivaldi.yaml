@@ -1,0 +1,30 @@
+name: Publish to Test PyPi
+on:
+  push:
+    branches: ["main"]
+jobs:
+  build:
+    name: Build TestPyPI distribution 📦
+    runs-on: ubuntu-latest
+  publish-to-testpypi:
+    name: Publish Python to TestPyPI
+    needs:
+      - build
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write # IMPORTANT: mandatory for trusted publishing
+    steps:
+      - uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8
+        with:
+          submodules: "true"
+          fetch-depth: 0
+          token: ${{ secrets.GITHUB_TOKEN }}
+      - uses: actions/setup-python@83679a892e2d95755f2dac6acb0bfd1e9ac5d548
+        with:
+          python-version: "3.14"
+          cache: "poetry" # caching pip dependencies
+      - name: Install poetry
+        run: pipx install poetry
+      - run: poetry install --only main
+      - run: poetry config repositories.pytest https://test.pypi.org/p/ivaldi
+      - run: poetry publish --build --repository pytest
