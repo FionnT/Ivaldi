@@ -239,7 +239,7 @@ ivaldi/stage/*
 __pycache__
 *.pyc
 **/*.pyc
-ivaldi/**/.pyc
+ivaldi/**/*.pyc
 
 !ivaldi/stage/.gitkeep
 !ivaldi/dist/.gitkeep
