@@ -2,25 +2,25 @@
 
 [Full report](https://htmlpreview.github.io/?https://github.com/FionnT/Ivaldi/blob/python-coverage-comment-action-data/htmlcov/index.html)
 
-| Name                       |    Stmts |     Miss |    Cover |   Missing |
-|--------------------------- | -------: | -------: | -------: | --------: |
-| ivaldi/\_\_init\_\_.py     |       51 |        0 |     100% |           |
-| ivaldi/\_\_main\_\_.py     |        2 |        0 |     100% |           |
-| ivaldi/commands/build.py   |       15 |        0 |     100% |           |
-| ivaldi/commands/install.py |       18 |        0 |     100% |           |
-| ivaldi/commands/run.py     |       16 |        0 |     100% |           |
-| ivaldi/shared/admin.py     |       12 |        0 |     100% |           |
-| ivaldi/shared/alias.py     |       71 |        0 |     100% |           |
-| ivaldi/shared/build.py     |       93 |        0 |     100% |           |
-| ivaldi/shared/collect.py   |       68 |        0 |     100% |           |
-| ivaldi/shared/extract.py   |       22 |        0 |     100% |           |
-| ivaldi/shared/project.py   |       56 |        0 |     100% |           |
-| ivaldi/shared/python.py    |       43 |        0 |     100% |           |
-| ivaldi/shared/settings.py  |      172 |        0 |     100% |           |
-| ivaldi/shared/uv.py        |       51 |        0 |     100% |           |
-| ivaldi/types/enums.py      |       66 |        0 |     100% |           |
-| ivaldi/types/settings.py   |       94 |        0 |     100% |           |
-| **TOTAL**                  |  **850** |    **0** | **100%** |           |
+| Name                       |    Stmts |     Miss |   Cover |   Missing |
+|--------------------------- | -------: | -------: | ------: | --------: |
+| ivaldi/\_\_init\_\_.py     |       51 |        0 |    100% |           |
+| ivaldi/\_\_main\_\_.py     |        2 |        0 |    100% |           |
+| ivaldi/commands/build.py   |       15 |        0 |    100% |           |
+| ivaldi/commands/install.py |       22 |        0 |    100% |           |
+| ivaldi/commands/run.py     |       16 |        0 |    100% |           |
+| ivaldi/shared/admin.py     |       45 |        7 |     84% |21-24, 27, 33-34 |
+| ivaldi/shared/alias.py     |       71 |        0 |    100% |           |
+| ivaldi/shared/build.py     |       93 |        0 |    100% |           |
+| ivaldi/shared/collect.py   |       68 |        0 |    100% |           |
+| ivaldi/shared/extract.py   |       22 |        0 |    100% |           |
+| ivaldi/shared/project.py   |       56 |        0 |    100% |           |
+| ivaldi/shared/python.py    |       43 |        0 |    100% |           |
+| ivaldi/shared/settings.py  |      173 |        0 |    100% |           |
+| ivaldi/shared/uv.py        |       51 |        0 |    100% |           |
+| ivaldi/types/enums.py      |       66 |        0 |    100% |           |
+| ivaldi/types/settings.py   |       93 |        0 |    100% |           |
+| **TOTAL**                  |  **887** |    **7** | **99%** |           |
 
 
 ## Setup coverage badge
