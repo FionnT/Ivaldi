@@ -6,6 +6,7 @@ import shutil
 import tomllib
 from pathlib import Path
 
+from ivaldi.shared.admin import user_home
 from ivaldi.types.enums import IVALDI
 from ivaldi.types.settings import UV, UVX, App, Directories, Nuitka, Platform, Python, Settings
 
@@ -18,7 +19,7 @@ GENERATED_CONFIG_HEADER = "# Generated from [tool.ivaldi] in pyproject.toml"
 def set_platform_home(settings):
 
     if system == "Darwin":
-        home = Path.home()
+        home = user_home()
         settings.dirs.exec = (home / "bin").resolve()
         settings.dirs.app = home / "Library" / "Application Support" / settings.platform.location
     elif system == "Windows":
@@ -26,7 +27,7 @@ def set_platform_home(settings):
         settings.dirs.exec = (Path(os.environ["LOCALAPPDATA"]) / "Microsoft" / "WindowsApps").resolve()
 
     elif system == "Linux":
-        home = Path.home()
+        home = user_home()
         settings.dirs.exec = home / ".local" / "bin"
         settings.dirs.app = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / settings.platform.location
     else:
