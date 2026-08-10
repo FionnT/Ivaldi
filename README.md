@@ -11,7 +11,7 @@
 | ivaldi/commands/run.py     |       16 |        0 |     100% |           |
 | ivaldi/shared/admin.py     |       45 |        0 |     100% |           |
 | ivaldi/shared/alias.py     |       71 |        0 |     100% |           |
-| ivaldi/shared/build.py     |       93 |        0 |     100% |           |
+| ivaldi/shared/build.py     |      125 |        0 |     100% |           |
 | ivaldi/shared/collect.py   |       68 |        0 |     100% |           |
 | ivaldi/shared/extract.py   |       22 |        0 |     100% |           |
 | ivaldi/shared/project.py   |       56 |        0 |     100% |           |
@@ -19,8 +19,8 @@
 | ivaldi/shared/settings.py  |      173 |        0 |     100% |           |
 | ivaldi/shared/uv.py        |       51 |        0 |     100% |           |
 | ivaldi/types/enums.py      |       66 |        0 |     100% |           |
-| ivaldi/types/settings.py   |       93 |        0 |     100% |           |
-| **TOTAL**                  |  **887** |    **0** | **100%** |           |
+| ivaldi/types/settings.py   |       94 |        0 |     100% |           |
+| **TOTAL**                  |  **920** |    **0** | **100%** |           |
 
 
 ## Setup coverage badge
