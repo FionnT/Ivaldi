@@ -1,6 +1,9 @@
+import sys
+from types import SimpleNamespace
+
 import pytest
 
-from ivaldi.shared.admin import needs_admin, run_elevated
+from ivaldi.shared.admin import is_admin, needs_admin, run_elevated
 
 
 def test_admin_true_applies_to_install_and_run():
@@ -19,4 +22,20 @@ def test_phase_specific_admin_modes():
 
 def test_run_elevated_requests_manual_elevation():
     with pytest.raises(SystemExit, match="sudo|Administrator"):
+        run_elevated()
+
+
+def test_is_admin_uses_effective_user_id(monkeypatch):
+    monkeypatch.setattr("ivaldi.shared.admin.os.name", "posix")
+    monkeypatch.setattr("ivaldi.shared.admin.os.geteuid", lambda: 0)
+    assert is_admin() is True
+
+
+def test_windows_admin_detection_and_message(monkeypatch):
+    ctypes = SimpleNamespace(windll=SimpleNamespace(shell32=SimpleNamespace(IsUserAnAdmin=lambda: 1)))
+    monkeypatch.setattr("ivaldi.shared.admin.os.name", "nt")
+    monkeypatch.setitem(sys.modules, "ctypes", ctypes)
+
+    assert is_admin() is True
+    with pytest.raises(SystemExit, match="Administrator"):
         run_elevated()

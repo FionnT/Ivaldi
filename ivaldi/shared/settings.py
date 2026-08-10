@@ -4,17 +4,41 @@ import shutil
 import tomllib
 from pathlib import Path
 
+from ivaldi.types.enums import IVALDI
 from ivaldi.types.settings import UV, UVX, App, Directories, Platform, Python, Settings
 
+system = platform.system()
 
-def user_home() -> Path:
-    if configured_home := os.environ.get("IVALDI_USER_HOME"):
-        return Path(configured_home)
-    if os.name != "nt" and (sudo_user := os.environ.get("SUDO_USER")) and sudo_user != "root":
-        import pwd
 
-        return Path(pwd.getpwnam(sudo_user).pw_dir)
-    return Path.home()
+def set_platform_home(settings):
+
+    if system == "Darwin":
+        home = Path.home()
+        settings.dirs.exec = (home / "bin").resolve()
+        settings.dirs.app = home / "Library" / "Application Support" / settings.platform.location
+    elif system == "Windows":
+        settings.dirs.app = Path(os.environ["APPDATA"]) / settings.platform.location
+        settings.dirs.exec = (Path(os.environ["LOCALAPPDATA"]) / "Microsoft" / "WindowsApps").resolve()
+
+    elif system == "Linux":
+        home = Path.home()
+        settings.dirs.exec = home / ".local" / "bin"
+        settings.dirs.app = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / settings.platform.location
+    else:
+        raise RuntimeError(f"Unsupported platform: {system}")
+
+    settings.dirs.bin = settings.dirs.app / "bin"
+    settings.dirs.venv = settings.dirs.app / "venv"
+    settings.dirs.uv = settings.dirs.app / "cache"
+
+    if system == "Windows":
+        settings.bin.uv = settings.dirs.bin / "uv.exe"
+        settings.bin.python = settings.dirs.venv / "Scripts" / "python.exe"
+    else:
+        settings.bin.uv = settings.dirs.bin / "uv"
+        settings.bin.python = settings.dirs.venv / "bin" / "python"
+
+    return settings
 
 
 def find_build_file(start: Path | None = None) -> tuple[Path, Path]:
@@ -22,129 +46,117 @@ def find_build_file(start: Path | None = None) -> tuple[Path, Path]:
     candidate = directory / "ivaldi.toml"
 
     if candidate.is_file():
-        return candidate, candidate.parent
+        return candidate
 
     for parent in directory.parents:
         candidate = parent / "ivaldi.toml"
         if candidate.is_file():
-            return candidate, candidate.parent
+            return candidate
 
     raise FileNotFoundError(f"Could not find ivaldi.toml in {directory} or any parent directory")
 
 
-def load_settings(location: Path, build=False):
-    run_platform = platform.system().lower()
-    dist = None
-    stage = None
+def handle_required_settings(settings):
+    missing = []
+    if not settings.app.entrypoint:
+        missing.append("app.entrypoint")
+    if not settings.python.version:
+        missing.append("python.version")
+    if not settings.platform.location:
+        missing.append(f"{platform.system().lower()}.location")
+    if settings.platform.add_to_path and not settings.platform.alias:
+        missing.append(f"{platform.system().lower()}.alias")
+    if missing:
+        raise ValueError(f"Missing required Ivaldi setting(s): {', '.join(missing)}")
 
-    if build:
-        file, project_folder = find_build_file()
-        dist = location / "dist"
-        stage = location / "stage"
-        output = project_folder / "dist"
-        dist.mkdir(exist_ok=True, parents=True)
-        stage.mkdir(exist_ok=True, parents=True)
-    else:
-        project_folder = location
-        dist = project_folder / "dist"
-        output = None
-        file = dist / "ivaldi.toml"
 
-    with open(file, "rb") as f:
+def parse_settings(config_file: Path, project_folder: Path, dist: Path, stage: Path, output: Path) -> Settings:
+    with open(config_file, "rb") as f:
         config = tomllib.load(f)
 
         try:
+            run_platform = config.get(platform.system().lower(), {})
+
             uv = UV(**config.get("uv", {}))
             uvx = UVX(**config.get("uvx", {}))
             python = Python(**config.get("python", {}))
             app = App(**config.get("app", {}))
             dirs = Directories(project=project_folder, dist=dist, stage=stage, output=output)
 
-            run_platform = Platform(**config.get(run_platform, {}))
+            run_platform = Platform(**run_platform)
 
         except TypeError as err:
             f = str(err).replace(".__init__()", "")
             raise KeyError(f)
 
         settings = Settings(app=app, python=python, uv=uv, uvx=uvx, dirs=dirs, platform=run_platform)
-
-        missing = []
-        if not settings.app.entrypoint:
-            missing.append("app.entrypoint")
-        if not settings.python.version:
-            missing.append("python.version")
-        if not settings.platform.location:
-            missing.append(f"{platform.system().lower()}.location")
-        if settings.platform.add_to_path and not settings.platform.alias:
-            missing.append(f"{platform.system().lower()}.alias")
-        if missing:
-            raise ValueError(f"Missing required Ivaldi setting(s): {', '.join(missing)}")
+        handle_required_settings(settings)
 
         return settings
 
 
-def load_install_directories(settings: Settings, app_data: Path, exec_dir: Path):
-    bundled_dist = settings.dirs.dist.resolve()
-    bin = app_data / "bin"
-    uv_cache = app_data / "cache"
-    build = app_data / "build"
-    dist = app_data / "dist"
+def load_settings(location: Path, build=False) -> Settings:
 
-    app_data.mkdir(exist_ok=True, parents=True)
-    bin.mkdir(exist_ok=True, parents=True)
-    uv_cache.mkdir(exist_ok=True, parents=True)
-    exec_dir.mkdir(exist_ok=True, parents=True)
-    if bundled_dist != dist.resolve():
+    dist = None
+    stage = None
+    output = None
+    project_folder = None
+
+    if build:
+        config_file = find_build_file()
+        project_folder = config_file.parent
+        output = config_file.parent / "dist"
+        dist = location / "dist"
+        stage = location / "stage"
+        dist.mkdir(exist_ok=True, parents=True)
+        stage.mkdir(exist_ok=True, parents=True)
+    else:
+        project_folder = location
+        dist = location / "dist"
+        config_file = dist / "ivaldi.toml"
+
+    return parse_settings(config_file=config_file, project_folder=project_folder, dist=dist, stage=stage, output=output)
+
+
+def load_install_directories(settings: Settings):
+    bundled_dist = settings.dirs.dist.resolve()
+    settings = set_platform_home(settings)
+
+    settings.dirs.build = settings.dirs.app / "build"
+    install_dist = settings.dirs.app / "dist"
+
+    settings.dirs.app.mkdir(exist_ok=True, parents=True)
+    settings.dirs.exec.mkdir(exist_ok=True, parents=True)
+    settings.dirs.bin.mkdir(exist_ok=True, parents=True)
+    settings.dirs.uv.mkdir(exist_ok=True, parents=True)
+
+    if bundled_dist != install_dist.resolve():
         if not bundled_dist.is_dir():
             raise FileNotFoundError(f"The bundled installation payload is missing: {bundled_dist}")
-        staged_dist = app_data / ".dist.tmp"
+        staged_dist = settings.dirs.app / ".dist.tmp"
         if staged_dist.exists():
             shutil.rmtree(staged_dist)
         shutil.copytree(bundled_dist, staged_dist)
-        if dist.exists():
-            shutil.rmtree(dist)
-        staged_dist.replace(dist)
+        if install_dist.exists():
+            shutil.rmtree(install_dist)
+        staged_dist.replace(install_dist)
     else:
-        dist.mkdir(exist_ok=True, parents=True)
+        install_dist.mkdir(exist_ok=True, parents=True)
 
-    settings.dirs.bin = bin
-    settings.dirs.uv = uv_cache
-    settings.dirs.app = app_data
-    settings.dirs.build = build
-    settings.dirs.dist = dist
-    settings.dirs.exec = exec_dir
+    settings.dirs.dist = install_dist
+
     return settings
 
 
 def load_runtime_directories(settings):
-    system = platform.system()
-    home = user_home()
+    settings = set_platform_home(settings)
 
-    if system == "Darwin":
-        app_data = home / "Library" / "Application Support" / settings.platform.location
-    elif system == "Windows":
-        app_data = Path(os.environ["APPDATA"]) / settings.platform.location
-    elif system == "Linux":
-        app_data = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / settings.platform.location
-    else:
-        raise RuntimeError(f"Unsupported platform: {system}")
-
-    settings.dirs.app = app_data
-    settings.dirs.bin = app_data / "bin"
-    settings.dirs.uv = app_data / "cache"
-    settings.dirs.venv = app_data / "venv"
-    settings.bin.uv = settings.dirs.bin / ("uv.exe" if system == "Windows" else "uv")
-    if system == "Windows":
-        settings.bin.python = settings.dirs.venv / "Scripts" / "python.exe"
-    else:
-        settings.bin.python = settings.dirs.venv / "bin" / "python"
     return settings
 
 
 def is_installed(settings: Settings) -> bool:
     """Return whether the complete runtime needed to launch the app exists."""
-    from ivaldi.types.enums import IVALDI
-
     settings = load_runtime_directories(settings)
+
     marker = settings.dirs.app / IVALDI.INSTALL_MARKER
     return marker.is_file()

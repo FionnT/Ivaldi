@@ -50,7 +50,7 @@ class UV:
     location: str = None
     entrypoint: str = None
     version: str = "0.12.3"
-    repo: str = "https://releases.astral.sh/github/uv/releases/download/"
+    repo: str = "https://releases.astral.sh/github/uv/releases/download"
     extra_args: list[str] = None
 
 

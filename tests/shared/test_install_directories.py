@@ -4,14 +4,24 @@ from ivaldi.shared.settings import is_installed, load_install_directories
 from ivaldi.types.enums import IVALDI
 
 
-def test_install_directories_copy_the_bundled_payload(tmp_path):
+def test_install_directories_copy_the_bundled_payload(tmp_path, monkeypatch):
     bundled = tmp_path / "bundle/dist"
     bundled.mkdir(parents=True)
     (bundled / "ivaldi.toml").write_text("[app]\n", encoding="utf-8")
     (bundled / "project.whl").touch()
-    settings = SimpleNamespace(dirs=SimpleNamespace(dist=bundled))
+    settings = SimpleNamespace(dirs=SimpleNamespace(dist=bundled), bin=SimpleNamespace())
 
-    result = load_install_directories(settings, tmp_path / "app-data", tmp_path / "bin")
+    def set_test_home(value):
+        value.dirs.app = tmp_path / "app-data"
+        value.dirs.exec = tmp_path / "bin"
+        value.dirs.bin = value.dirs.app / "bin"
+        value.dirs.uv = value.dirs.app / "cache"
+        value.dirs.venv = value.dirs.app / "venv"
+        return value
+
+    monkeypatch.setattr("ivaldi.shared.settings.set_platform_home", set_test_home)
+
+    result = load_install_directories(settings)
 
     assert result.dirs.dist == tmp_path / "app-data/dist"
     assert (result.dirs.dist / "ivaldi.toml").is_file()

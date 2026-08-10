@@ -12,8 +12,7 @@ def _rule_specificity(rule):
     return literal_characters, -wildcard_characters, len(rule)
 
 
-def collect(settings):
-    project = settings.dirs.project
+def build_rules(settings):
     exclusion_rules = set()
     for rule in settings.app.exclude:
         rule = rule.rstrip("/")
@@ -25,13 +24,16 @@ def collect(settings):
 
     include_rules_by_item = {}
     for rule in settings.app.include:
-        for item in project.glob(rule):
+        for item in settings.dirs.project.glob(rule):
             include_rules_by_item.setdefault(item, []).append(rule)
 
+    return exclusion_rules, include_rules_by_item
+
+
+def collect_files_to_include(exclusion_rules, include_rules_by_item, project):
     included = sorted(include_rules_by_item)
     excluded = []
     collected = []
-
     for item in included:
         relative_path = item.relative_to(project)
         matching_exclusions = [rule for path in (relative_path, *relative_path.parents) if path != Path(".") for rule in exclusion_rules if path.full_match(rule)]
@@ -43,15 +45,51 @@ def collect(settings):
         else:
             collected.append(item)
 
-    logger.info("Collecting %d project items", len(collected))
     if excluded:
         logger.info("Dropping %d project items due to exclusion rules", len(excluded))
+    logger.info("Collecting %d project items", len(collected))
 
+    return collected
+
+
+def ensure_required_files(collected, project: Path):
+    """Add known project files, creating minimal build metadata when needed."""
     pyproject = project / "pyproject.toml"
-    if not pyproject.is_file():
-        raise FileNotFoundError(f"Could not find the project's pyproject.toml: {pyproject}")
-    if pyproject not in collected:
-        collected.append(pyproject)
+    requirements = project / "requirements.txt"
+    readme = next(
+        (file for file in project.iterdir() if file.is_file() and file.name.casefold() == "readme.md"),
+        project / "readme.md",
+    )
+
+    configuration = pyproject if pyproject.is_file() else requirements if requirements.is_file() else None
+    if configuration is None:
+        project_name = "-".join(part for part in "".join(character.lower() if character.isascii() and character.isalnum() else "-" for character in project.name).split("-") if part) or "ivaldi-project"
+        logger.warning(
+            "No pyproject.toml or requirements.txt found in %s; creating a minimal pyproject.toml and readme.md",
+            project,
+        )
+        pyproject.write_text(
+            f'[build-system]\nrequires = ["setuptools"]\nbuild-backend = "setuptools.build_meta"\n\n[project]\nname = "{project_name}"\nversion = "0.0.0"\nreadme = "{readme.name}"\n',
+            encoding="utf-8",
+        )
+        if not readme.is_file():
+            readme.write_text(f"# {project.name}\n", encoding="utf-8")
+        configuration = pyproject
+
+    for file in (configuration, readme):
+        if file.is_file() and file not in collected:
+            collected.append(file)
+
+    return collected
+
+
+def collect(settings):
+    project = settings.dirs.project
+
+    exclusion_rules, include_rules_by_item = build_rules(settings)
+    collected = collect_files_to_include(exclusion_rules, include_rules_by_item, project)
+    collected = ensure_required_files(collected, project)
+
     for item in collected:
         relative_path = item.relative_to(project)
         build_path = settings.dirs.stage / relative_path

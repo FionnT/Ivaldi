@@ -7,7 +7,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
-def _uv_environment(python_install_dir):
+def get_uv_environment(python_install_dir):
     environment = os.environ.copy()
     for variable in ("CONDA_PREFIX", "PYENV_VERSION", "VIRTUAL_ENV"):
         environment.pop(variable, None)
@@ -34,7 +34,7 @@ def find_python(settings):
         check=True,
         capture_output=True,
         text=True,
-        env=_uv_environment(install_dir),
+        env=get_uv_environment(install_dir),
     )
     managed_python = Path(result.stdout.strip()).resolve()
     if not managed_python.is_relative_to(install_dir):
@@ -58,7 +58,7 @@ def install_python(settings):
         command,
         shell=False,
         check=True,
-        env=_uv_environment(settings.dirs.bin),
+        env=get_uv_environment(settings.dirs.bin),
     )
     if install.returncode != 0:
         raise RuntimeError(f"Python install failed - exited with code {install.returncode} - {install}")
@@ -88,7 +88,7 @@ def install_python(settings):
         ],
         shell=False,
         check=True,
-        env=_uv_environment(settings.dirs.bin),
+        env=get_uv_environment(settings.dirs.bin),
     )
     if create_venv.returncode != 0:
         raise RuntimeError(f"Virtual environment creation failed - exited with code {create_venv.returncode} - {create_venv}")

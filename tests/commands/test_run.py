@@ -1,7 +1,11 @@
 from types import SimpleNamespace
 
-from ivaldi.commands.run import run
+from ivaldi.commands.run import entrypoint_command, run
 from ivaldi.types.enums import IVALDI
+
+
+def test_entrypoint_command_uses_executable_entrypoint_without_colon():
+    assert entrypoint_command("my-command", None, ["arg"]) == ["my-command", "arg"]
 
 
 def test_run_uses_installed_python_and_forwards_all_arguments(tmp_path, monkeypatch):

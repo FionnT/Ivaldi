@@ -6,7 +6,7 @@ from zipfile import ZipFile
 from ivaldi.types.enums import IVALDI
 
 
-def _wheel_requirement(wheel: Path, all_extras: bool) -> str:
+def get_wheel_requirement(wheel: Path, all_extras: bool) -> str:
     requirement = str(wheel.resolve())
     if not all_extras:
         return requirement
@@ -22,7 +22,20 @@ def _wheel_requirement(wheel: Path, all_extras: bool) -> str:
     return requirement
 
 
-def install_project(settings):
+def handle_install_flags(settings):
+    install_flags = []
+    if settings.app.install.compile_bytecode:
+        install_flags.append("--compile-bytecode")
+    if settings.app.install.exact:
+        install_flags.append("--exact")
+    if settings.app.install.strict:
+        install_flags.append("--strict")
+    if settings.app.build.include_wheels:
+        install_flags.append("--no-index")
+    return install_flags
+
+
+def handle_wheel(settings):
     manifest = settings.dirs.dist / IVALDI.WHEEL_MANIFEST
     if manifest.is_file():
         wheel_name = manifest.read_text(encoding="utf-8").strip()
@@ -38,22 +51,21 @@ def install_project(settings):
     if wheel_location is None:
         raise RuntimeError("Could not find the wheel for the program on install! Something went wrong.")
 
+    return wheel_location
+
+
+def install_project(settings):
+
+    wheel_location = handle_wheel(settings)
+    wheel_requirement = get_wheel_requirement(wheel_location, settings.app.build.all_extras)
     installed_wheel = wheel_location.name
-    wheel_requirement = _wheel_requirement(wheel_location, settings.app.build.all_extras)
+
     uv = f"{settings.bin.uv.resolve()!s}"
     python = f"{settings.bin.python.absolute()!s}"
     dist = f"{settings.dirs.dist.resolve()!s}"
     uv_cache = f"{settings.dirs.uv.resolve()!s}"
 
-    install_flags = []
-    if settings.app.install.compile_bytecode:
-        install_flags.append("--compile-bytecode")
-    if settings.app.install.exact:
-        install_flags.append("--exact")
-    if settings.app.install.strict:
-        install_flags.append("--strict")
-    if settings.app.build.include_wheels:
-        install_flags.append("--no-index")
+    install_flags = handle_install_flags(settings)
 
     command = [
         uv,
@@ -85,6 +97,7 @@ def install_project(settings):
     )
     if install.returncode != 0:
         raise RuntimeError(f"Project install failed - exited with code {install.returncode} - {install}")
+
     return installed_wheel
 
 

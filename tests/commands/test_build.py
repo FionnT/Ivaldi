@@ -2,7 +2,166 @@ import platform
 import sys
 from types import SimpleNamespace
 
-from ivaldi.shared.build import build_all_wheels, build_executable, get_or_build_uv
+import pytest
+
+from ivaldi.shared.build import (
+    build_all_wheels,
+    build_executable,
+    build_project_wheel,
+    get_configured_extras,
+    get_executable_name,
+    get_or_build_uv,
+    prepare_build,
+)
+from ivaldi.types.enums import IVALDI
+
+
+def test_prepare_build_recreates_stage_and_payload(tmp_path):
+    project = tmp_path / "project"
+    stage = tmp_path / "stage"
+    dist = tmp_path / "dist"
+    for directory in (project, stage, dist):
+        directory.mkdir()
+    (stage / "stale").touch()
+    (dist / "stale").touch()
+    (project / "ivaldi.toml").write_text("[app]\n", encoding="utf-8")
+    settings = SimpleNamespace(dirs=SimpleNamespace(project=project, stage=stage, dist=dist))
+
+    prepare_build(settings)
+
+    assert list(stage.iterdir()) == [stage / ".gitkeep"]
+    assert (dist / "ivaldi.toml").read_text(encoding="utf-8") == "[app]\n"
+
+
+def test_build_project_wheel_uses_isolated_backend_and_writes_manifest(tmp_path, monkeypatch):
+    stage = tmp_path / "stage"
+    dist = tmp_path / "dist"
+    stage.mkdir()
+    dist.mkdir()
+    installs = []
+    builds = []
+
+    class Environment:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *args):
+            return None
+
+        def install(self, requirements):
+            installs.append(requirements)
+
+    class Builder:
+        build_system_requires = {"backend"}
+
+        def get_requires_for_build(self, distribution):
+            return {"wheel-requirement"}
+
+        def build(self, distribution, output_directory):
+            builds.append((distribution, output_directory))
+            return str(output_directory / "app.whl")
+
+    monkeypatch.setattr("ivaldi.shared.build.DefaultIsolatedEnv", Environment)
+    monkeypatch.setattr("ivaldi.shared.build.ProjectBuilder.from_isolated_env", lambda env, source: Builder())
+    settings = SimpleNamespace(dirs=SimpleNamespace(stage=stage, dist=dist))
+
+    wheel = build_project_wheel(settings)
+
+    assert wheel == dist / "app.whl"
+    assert installs == [{"backend"}, {"wheel-requirement"}]
+    assert builds == [("wheel", dist)]
+    assert (dist / IVALDI.WHEEL_MANIFEST).read_text(encoding="utf-8") == "app.whl"
+
+
+def test_get_configured_extras_reads_optional_dependencies(tmp_path):
+    stage = tmp_path / "stage"
+    stage.mkdir()
+    (stage / "pyproject.toml").write_text(
+        "[project.optional-dependencies]\nserver=[]\nreports=[]\n",
+        encoding="utf-8",
+    )
+    settings = SimpleNamespace(app=SimpleNamespace(build=SimpleNamespace(all_extras=True)), dirs=SimpleNamespace(stage=stage))
+
+    assert get_configured_extras(settings) == ["reports", "server"]
+
+
+def test_get_or_build_uv_prefers_path_and_cached_tool(tmp_path, monkeypatch):
+    path_uv = tmp_path / "path-uv"
+    monkeypatch.setattr("ivaldi.shared.build.shutil.which", lambda executable: str(path_uv))
+    settings = SimpleNamespace(uv=SimpleNamespace(version="1"), dirs=SimpleNamespace(dist=tmp_path / "payload/dist"))
+    assert get_or_build_uv(settings) == path_uv
+
+    monkeypatch.setattr("ivaldi.shared.build.shutil.which", lambda executable: None)
+    cached = tmp_path / "payload/.tools/1/bin/uv"
+    cached.parent.mkdir(parents=True)
+    cached.touch()
+    assert get_or_build_uv(settings) == cached
+
+
+def test_build_all_wheels_uses_manifest_extras_and_extra_arguments(tmp_path, monkeypatch):
+    dist = tmp_path / "dist"
+    stage = tmp_path / "stage"
+    project = tmp_path / "project"
+    for directory in (dist, stage, project):
+        directory.mkdir()
+    wheel = dist / "app.whl"
+    wheel.touch()
+    (dist / IVALDI.WHEEL_MANIFEST).write_text(wheel.name, encoding="utf-8")
+    (stage / "pyproject.toml").write_text("[project.optional-dependencies]\nb=[]\na=[]\n", encoding="utf-8")
+    uv = tmp_path / "uv"
+    uv.touch()
+    settings = SimpleNamespace(
+        app=SimpleNamespace(build=SimpleNamespace(all_extras=True)),
+        uv=SimpleNamespace(extra_args=["--native-tls"]),
+        uvx=SimpleNamespace(extra_args=["--isolated"]),
+        dirs=SimpleNamespace(dist=dist, stage=stage, project=project),
+    )
+    captured = {}
+    monkeypatch.setattr("ivaldi.shared.build.get_or_build_uv", lambda value: uv)
+    monkeypatch.setattr("ivaldi.shared.build.subprocess.run", lambda command, **kwargs: captured.update(command=command))
+
+    build_all_wheels(settings)
+
+    assert "--native-tls" in captured["command"]
+    assert "--isolated" in captured["command"]
+    assert f"{wheel.resolve()}[a,b]" in captured["command"]
+
+
+def test_build_all_wheels_requires_manifest(tmp_path, monkeypatch):
+    dist = tmp_path / "dist"
+    dist.mkdir()
+    settings = SimpleNamespace(dirs=SimpleNamespace(dist=dist))
+    monkeypatch.setattr("ivaldi.shared.build.get_or_build_uv", lambda value: tmp_path / "uv")
+
+    with pytest.raises(FileNotFoundError, match="must be built"):
+        build_all_wheels(settings)
+
+
+def test_executable_name_falls_back_and_adds_windows_suffix(tmp_path, monkeypatch):
+    settings = SimpleNamespace(
+        platform=SimpleNamespace(alias=None, name=None),
+        dirs=SimpleNamespace(project=tmp_path / "project"),
+    )
+    monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
+    assert get_executable_name(settings) == "project.exe"
+
+
+def test_build_executable_adds_windows_runtime_flag(tmp_path, monkeypatch):
+    package = tmp_path / "ivaldi"
+    payload = package / "dist"
+    output = tmp_path / "output"
+    payload.mkdir(parents=True)
+    settings = SimpleNamespace(
+        dirs=SimpleNamespace(dist=payload, output=output, project=tmp_path / "project"),
+        platform=SimpleNamespace(alias="app.exe", name=None, location="app"),
+    )
+    captured = {}
+    monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
+    monkeypatch.setattr("ivaldi.shared.build.subprocess.run", lambda command, **kwargs: captured.update(command=command))
+
+    build_executable(package, settings)
+
+    assert "--include-windows-runtime-dlls=yes" in captured["command"]
 
 
 def test_build_executable_embeds_payload_and_uses_platform_alias(tmp_path, monkeypatch):

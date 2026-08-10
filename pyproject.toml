@@ -1,13 +1,13 @@
 [project]
 name = "ivaldi"
-version = "0.2.8"
+version = "0.2.19"
 description = "Create a portable version of your Python Project"
 authors = [
     {name = "Fionn Tolster"}
 ]
 license = "MIT"
 readme = "README.md"
-requires-python = ">3.13,<3.15"
+requires-python = ">3.10,<3.15"
 dependencies = [
   "requests (>=2.34.2,<3.0.0)", 
   "nuitka[all] (>=4.1.3,<5.0.0)", 
@@ -31,28 +31,20 @@ include = []
 
 [tool.nuitka]
 project = true
-# Build flags
 mode = "onefile"
 no-prefer-source-code = true
 assume-yes-for-downloads = true
-output-dir = "dist/"
 remove-output = true
 static-libpython = "no"
-onefile-no-compression = true
-
 nofollow-import-to = ["*.tests", "tests", "*.benchmarks", "_decimal"]
 enable-plugin = []
 include-package = []
-
 # OS compatability
 include-windows-runtime-dlls = "yes"
-company-name = "Neo4j"
-product-name = "Ivaldi Installer"
-file-description = "Creates a portable executable version of your project"
 
-# # Runtime optimisations
-# onefile-cache-mode = "cached"
-
+# Runtime optimisations
+onefile-cache-mode = "cached"
+onefile-no-compression = true
 
 [tool.coverage.run]
 relative_files = true

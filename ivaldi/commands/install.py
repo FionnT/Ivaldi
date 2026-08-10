@@ -2,25 +2,22 @@ import platform
 from pathlib import Path
 
 from ivaldi.shared.alias import install_alias
-from ivaldi.shared.project import mark_installed
-from ivaldi.shared.settings import load_settings
+from ivaldi.shared.project import install_project, mark_installed
+from ivaldi.shared.python import install_python
+from ivaldi.shared.settings import load_install_directories, load_settings
+from ivaldi.shared.uv import install_uv
 
 system = platform.system()
 
 
 def install(location, executable: Path | None = None):
     settings = load_settings(location=location, build=False)
+    settings = load_install_directories(settings)
 
-    if system == "Darwin":
-        from ivaldi.installers.mac import Install
-    elif system == "Windows":
-        from ivaldi.installers.win import Install
-    elif system == "Linux":
-        from ivaldi.installers.linux import Install
-    else:
-        raise RuntimeError(f"Unsupported platform: {system}")
+    install_uv(settings)
+    install_python(settings)
+    install_project(settings)
 
-    settings = Install(settings)
     alias = install_alias(settings, executable)
     if not settings.platform.add_to_path or alias is not None:
         mark_installed(settings)

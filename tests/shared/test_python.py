@@ -1,7 +1,9 @@
 from pathlib import Path
 from types import SimpleNamespace
 
-from ivaldi.shared.python import install_python
+import pytest
+
+from ivaldi.shared.python import find_python, install_python
 
 
 def test_install_python_records_managed_interpreter(tmp_path, monkeypatch):
@@ -43,3 +45,57 @@ def test_install_python_records_managed_interpreter(tmp_path, monkeypatch):
         "--python",
         str(managed_python.resolve()),
     ]
+
+
+def make_python_settings(tmp_path):
+    return SimpleNamespace(
+        bin=SimpleNamespace(uv=tmp_path / "bin/uv", python=None),
+        dirs=SimpleNamespace(app=tmp_path / "app", bin=tmp_path / "bin", uv=tmp_path / "cache"),
+        python=SimpleNamespace(version="3.14", install_flags=["--default"]),
+    )
+
+
+def test_find_python_rejects_interpreter_outside_install_directory(tmp_path, monkeypatch):
+    settings = make_python_settings(tmp_path)
+    monkeypatch.setattr(
+        "ivaldi.shared.python.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(stdout=str(tmp_path / "outside/python")),
+    )
+    with pytest.raises(RuntimeError, match="outside its managed"):
+        find_python(settings)
+
+
+def test_install_python_reports_install_failure(tmp_path, monkeypatch):
+    settings = make_python_settings(tmp_path)
+    monkeypatch.setattr(
+        "ivaldi.shared.python.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=3),
+    )
+    with pytest.raises(RuntimeError, match="Python install failed"):
+        install_python(settings)
+
+
+def test_install_python_sets_windows_interpreter_path(tmp_path, monkeypatch):
+    settings = make_python_settings(tmp_path)
+    managed = settings.dirs.bin / "managed/python.exe"
+    monkeypatch.setattr("ivaldi.shared.python.os.name", "nt")
+    monkeypatch.setattr("ivaldi.shared.python.find_python", lambda value: managed)
+    monkeypatch.setattr(
+        "ivaldi.shared.python.subprocess.run",
+        lambda *args, **kwargs: SimpleNamespace(returncode=0),
+    )
+
+    install_python(settings)
+
+    assert settings.bin.python == settings.dirs.app / "venv/Scripts/python.exe"
+
+
+def test_install_python_reports_venv_failure(tmp_path, monkeypatch):
+    settings = make_python_settings(tmp_path)
+    managed = settings.dirs.bin / "managed/python"
+    results = iter([SimpleNamespace(returncode=0), SimpleNamespace(returncode=4)])
+    monkeypatch.setattr("ivaldi.shared.python.find_python", lambda value: managed)
+    monkeypatch.setattr("ivaldi.shared.python.subprocess.run", lambda *args, **kwargs: next(results))
+
+    with pytest.raises(RuntimeError, match="Virtual environment creation failed"):
+        install_python(settings)

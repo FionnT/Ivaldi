@@ -1,8 +1,57 @@
+import runpy
+import sys
 from types import SimpleNamespace
 
 import pytest
 
 from ivaldi import application, main
+
+
+def test_main_prints_help_for_no_arguments(monkeypatch, capsys):
+    monkeypatch.setattr(sys, "argv", ["ivaldi"])
+
+    assert main() == 0
+    assert "Usage: ivaldi" in capsys.readouterr().out
+
+
+def test_main_dispatches_build_and_install(monkeypatch):
+    calls = []
+    monkeypatch.setattr("ivaldi._build", lambda location: calls.append("build"))
+    monkeypatch.setattr("ivaldi._install", lambda location: calls.append("install"))
+
+    assert main(["build"]) == 0
+    assert main(["install"]) == 0
+    assert calls == ["build", "install"]
+
+
+def test_main_rejects_unknown_commands_and_command_arguments():
+    with pytest.raises(SystemExit, match="Unknown command"):
+        main(["unknown"])
+    with pytest.raises(SystemExit, match="does not accept arguments"):
+        main(["build", "extra"])
+
+
+def test_console_script_wrappers(monkeypatch):
+    import ivaldi
+
+    calls = []
+    monkeypatch.setattr(ivaldi, "_build", lambda location: calls.append("build"))
+    monkeypatch.setattr(ivaldi, "_install", lambda location: calls.append("install"))
+    monkeypatch.setattr(ivaldi, "_run", lambda location: calls.append("run") or 5)
+
+    ivaldi.build()
+    ivaldi.install()
+    assert ivaldi.run() == 5
+    assert calls == ["build", "install", "run"]
+
+
+def test_module_entrypoint_exits_with_application_status(monkeypatch):
+    import ivaldi
+
+    monkeypatch.setattr(ivaldi, "application", lambda: 12)
+    with pytest.raises(SystemExit) as raised:
+        runpy.run_module("ivaldi.__main__", run_name="__main__")
+    assert raised.value.code == 12
 
 
 def test_main_dispatches_run_and_forwards_only_application_arguments(monkeypatch):
@@ -80,3 +129,14 @@ def test_install_only_admin_mode_exits_after_privileged_install(monkeypatch, tmp
 
     assert application([], executable=tmp_path / "launcher") == 0
     assert calls == ["install"]
+
+
+def test_application_elevates_an_existing_install_for_run(monkeypatch, tmp_path):
+    settings = SimpleNamespace(platform=SimpleNamespace(admin="run"))
+    launcher = tmp_path / "launcher"
+    monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
+    monkeypatch.setattr("ivaldi.is_installed", lambda value: True)
+    monkeypatch.setattr("ivaldi.is_admin", lambda: False)
+    monkeypatch.setattr("ivaldi.run_elevated", lambda executable, args: (executable, args))
+
+    assert application(["arg"], executable=launcher) == (launcher.resolve(), ["arg"])
