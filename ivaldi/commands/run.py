@@ -2,26 +2,15 @@ import subprocess
 import sys
 
 from ivaldi.shared.settings import load_runtime_directories, load_settings
-
-ENTRYPOINT_RUNNER = """\
-import importlib
-import sys
-
-module_name, callable_name, *args = sys.argv[1:]
-sys.argv = [module_name, *args]
-entrypoint = importlib.import_module(module_name)
-for attribute in callable_name.split("."):
-    entrypoint = getattr(entrypoint, attribute)
-raise SystemExit(entrypoint())
-"""
+from ivaldi.types.enums import IVALDI
 
 
-def _entrypoint_command(entrypoint, python, args):
+def entrypoint_command(entrypoint, python, args):
     if ":" not in entrypoint:
         return [entrypoint, *args]
 
     module_name, callable_name = entrypoint.split(":", 1)
-    return [str(python.absolute()), "-c", ENTRYPOINT_RUNNER, module_name, callable_name, *args]
+    return [str(python.absolute()), "-c", IVALDI.ENTRYPOINT_RUNNER, module_name, callable_name, *args]
 
 
 def run(location, args=None):
@@ -32,6 +21,7 @@ def run(location, args=None):
     command = [
         str(settings.bin.uv.resolve()),
         "run",
+        "--no-project",
         "--python",
         str(settings.bin.python.absolute()),
         "--no-python-downloads",
@@ -39,7 +29,7 @@ def run(location, args=None):
         "--cache-dir",
         str(settings.dirs.uv.resolve()),
         "--",
-        *_entrypoint_command(settings.app.entrypoint, settings.bin.python, forwarded_args),
+        *entrypoint_command(settings.app.entrypoint, settings.bin.python, forwarded_args),
     ]
     result = subprocess.run(command, shell=False, check=False, cwd=settings.dirs.app)
     return result.returncode

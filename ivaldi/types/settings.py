@@ -73,11 +73,21 @@ class Poetry:
 
 @dataclass
 class Platform:
+    def __post_init__(self):
+        if isinstance(self.admin, str):
+            normalized = self.admin.lower()
+            if normalized == "true":
+                self.admin = True
+            elif normalized == "false":
+                self.admin = False
+            elif normalized not in {"run", "install"}:
+                raise ValueError("platform.admin must be true, false, 'run', or 'install'")
+
     name: str = None
     location: str = None
     alias: str = None
     add_to_path: bool = True
-    admin: bool = False
+    admin: bool | str = False
 
 
 @dataclass
@@ -90,6 +100,7 @@ class Directories:
     stage: Path = None  # The staging directory for building
     dist: Path = None  # The dir we ship with the executable, used for installing the program later
     venv: Path = None  # The application virtual environment
+    output: Path = None  # The directory containing the generated wrapper executable
 
 
 @dataclass

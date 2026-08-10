@@ -91,8 +91,6 @@ def install_python(settings):
         env=_uv_environment(settings.dirs.bin),
     )
     if create_venv.returncode != 0:
-        raise RuntimeError(
-            f"Virtual environment creation failed - exited with code {create_venv.returncode} - {create_venv}"
-        )
+        raise RuntimeError(f"Virtual environment creation failed - exited with code {create_venv.returncode} - {create_venv}")
 
-    logger.info(f"Installed Python {settings.python.version} sucessfully")
+    logger.info("Installed Python %s successfully", settings.python.version)

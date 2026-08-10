@@ -1,13 +1,18 @@
-import logging
 import os
-import sys
 from pathlib import Path
 
-from ivaldi.shared.settings import load_directories, load_settings
+from ivaldi.shared.project import install_project
+from ivaldi.shared.python import install_python
+from ivaldi.shared.settings import load_install_directories
+from ivaldi.shared.uv import install_uv
 
 
 def Install(settings):
-    settings = load_settings("win")
     app_data = Path(os.environ["APPDATA"]) / settings.platform.location
     exec_dir = (Path(os.environ["LOCALAPPDATA"]) / "Microsoft" / "WindowsApps").resolve()
-    settings = load_directories(settings, app_data, exec_dir)
+    settings = load_install_directories(settings, app_data, exec_dir)
+
+    install_uv(settings)
+    install_python(settings)
+    install_project(settings)
+    return settings

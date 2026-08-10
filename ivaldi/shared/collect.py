@@ -47,7 +47,11 @@ def collect(settings):
     if excluded:
         logger.info("Dropping %d project items due to exclusion rules", len(excluded))
 
-    collected.append(project / "pyproject.toml")
+    pyproject = project / "pyproject.toml"
+    if not pyproject.is_file():
+        raise FileNotFoundError(f"Could not find the project's pyproject.toml: {pyproject}")
+    if pyproject not in collected:
+        collected.append(pyproject)
     for item in collected:
         relative_path = item.relative_to(project)
         build_path = settings.dirs.stage / relative_path

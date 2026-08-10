@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
-from ivaldi.commands.run import ENTRYPOINT_RUNNER, run
+from ivaldi.commands.run import run
+from ivaldi.types.enums import IVALDI
 
 
 def test_run_uses_installed_python_and_forwards_all_arguments(tmp_path, monkeypatch):
@@ -32,6 +33,7 @@ def test_run_uses_installed_python_and_forwards_all_arguments(tmp_path, monkeypa
     assert captured["command"] == [
         str(uv.resolve()),
         "run",
+        "--no-project",
         "--python",
         str(python.resolve()),
         "--no-python-downloads",
@@ -41,7 +43,7 @@ def test_run_uses_installed_python_and_forwards_all_arguments(tmp_path, monkeypa
         "--",
         str(python.resolve()),
         "-c",
-        ENTRYPOINT_RUNNER,
+        IVALDI.ENTRYPOINT_RUNNER,
         "someproject",
         "main",
         "--verbose",

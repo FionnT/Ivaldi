@@ -2,7 +2,19 @@ from enum import StrEnum
 
 
 class IVALDI(StrEnum):
-    WHEEL_NAME = "ivaldi_built_wheel"
+    WHEEL_MANIFEST = ".ivaldi-wheel"
+    INSTALL_MARKER = ".ivaldi-installed"
+    ENTRYPOINT_RUNNER = """\
+    import importlib
+    import sys
+
+    module_name, callable_name, *args = sys.argv[1:]
+    sys.argv = [module_name, *args]
+    entrypoint = importlib.import_module(module_name)
+    for attribute in callable_name.split("."):
+        entrypoint = getattr(entrypoint, attribute)
+    raise SystemExit(entrypoint())
+    """
 
 
 class UV_ARTIFACTS(StrEnum):

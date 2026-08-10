@@ -5,6 +5,8 @@ from pathlib import Path
 from ivaldi.commands.build import build as _build
 from ivaldi.commands.install import install as _install
 from ivaldi.commands.run import run as _run
+from ivaldi.shared.admin import is_admin, needs_admin, run_elevated
+from ivaldi.shared.settings import is_installed, load_settings
 
 logging.basicConfig(
     force=True,
@@ -27,9 +29,11 @@ def main(args=None):
     if command_args:
         raise SystemExit(f"{command} does not accept arguments\n{usage}")
     if command == "build":
-        return _build(location)
+        _build(location)
+        return 0
     if command == "install":
-        return _install(location)
+        _install(location)
+        return 0
     raise SystemExit(f"Unknown command: {command}\n{usage}")
 
 
@@ -43,3 +47,25 @@ def install():
 
 def run():
     return _run(location)
+
+
+def application(args=None, executable=None):
+    """Install the bundled application once, then run it with the given arguments."""
+    arguments = sys.argv[1:] if args is None else args
+    launcher = Path(sys.argv[0] if executable is None else executable).resolve()
+    settings = load_settings(location=location, build=False)
+    installed = is_installed(settings)
+    administrator = is_admin()
+
+    if not installed and needs_admin(settings.platform.admin, "install"):
+        if not administrator:
+            return run_elevated(launcher, arguments)
+        _install(location, executable=launcher)
+        if settings.platform.admin == "install":
+            return 0
+    elif not installed:
+        _install(location, executable=launcher)
+
+    if needs_admin(settings.platform.admin, "run") and not administrator:
+        return run_elevated(launcher, arguments)
+    return _run(location, arguments)

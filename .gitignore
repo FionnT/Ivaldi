@@ -153,6 +153,7 @@ activemq-data/
 .env
 .envrc
 .venv
+ivaldi/.tools/
 env/
 venv/
 ENV/

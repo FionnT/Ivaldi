@@ -1,7 +1,6 @@
 import logging
 import platform
 import tempfile
-from os import stat
 from pathlib import Path
 
 import requests
@@ -45,25 +44,28 @@ def install_uv(settings: Settings):
 
     url = repo + "/" + version + "/" + release
 
-    with requests.get(url, stream=True) as response:
-        response.raise_for_status()
-        total_length = response.headers.get("content-length")
-        if total_length is None:  # no content length header
-            raise ValueError(f"Received empty content-length header back from {url}. Please check the URL passed.")
-        else:
-            try:
-                blksize = stat.st_blksize if stat else 4096
-            except AttributeError:
-                blksize = 4096
+    temporary = None
+    try:
+        with requests.get(url, stream=True) as response:
+            response.raise_for_status()
+            total_length = response.headers.get("content-length")
+            if total_length is None:  # no content length header
+                raise ValueError(f"Received empty content-length header back from {url}. Please check the URL passed.")
 
-            with tempfile.NamedTemporaryFile() as f:
-                for data in response.iter_content(chunk_size=blksize):
+            with tempfile.NamedTemporaryFile(delete=False, dir=settings.dirs.app) as f:
+                temporary = Path(f.name)
+                for data in response.iter_content(chunk_size=64 * 1024):
                     f.write(data)
-                Path(f.name).replace(destination)
+            temporary.replace(destination)
+            temporary = None
+    finally:
+        if temporary is not None:
+            temporary.unlink(missing_ok=True)
 
     extract(location=destination, destination=settings.dirs.bin)
 
-    logger.info(f"Installed UV {version} sucessfully")
+    logger.info("Installed UV %s successfully", version)
 
-    settings.bin.uv = settings.dirs.bin / "uv"
-    settings.bin.uvx = settings.dirs.bin / "uvx"
+    executable_suffix = ".exe" if platform.system() == "Windows" else ""
+    settings.bin.uv = settings.dirs.bin / f"uv{executable_suffix}"
+    settings.bin.uvx = settings.dirs.bin / f"uvx{executable_suffix}"
