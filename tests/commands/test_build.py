@@ -1,12 +1,13 @@
 import platform
 import sys
 from types import SimpleNamespace
+from zipfile import ZipFile
 
 import pytest
 
-from ivaldi.shared.build import build_all_wheels, build_executable, build_project_wheel, get_configured_extras, get_executable_name, get_nuitka_metadata_args, get_or_build_uv, prepare_build
+from ivaldi.shared.build import build_all_wheels, build_executable, build_project_wheel, get_configured_extras, get_executable_name, get_nuitka_metadata_args, get_or_build_uv, get_project_version, prepare_build
 from ivaldi.types.enums import IVALDI
-from ivaldi.types.settings import Nuitka
+from ivaldi.types.settings import App, Nuitka
 
 
 def test_prepare_build_recreates_stage_and_payload(tmp_path):
@@ -140,15 +141,72 @@ def test_executable_name_falls_back_and_adds_windows_suffix(tmp_path, monkeypatc
     assert get_executable_name(settings) == "project.exe"
 
 
+def test_project_version_prefers_standard_and_poetry_metadata(tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    pyproject = project / "pyproject.toml"
+    settings = SimpleNamespace(
+        app=SimpleNamespace(version="9.9.9"),
+        dirs=SimpleNamespace(project=project, dist=tmp_path / "dist"),
+    )
+
+    pyproject.write_text('[project]\nversion = "1.2.3"\n[tool.poetry]\nversion = "2.0.0"\n', encoding="utf-8")
+    assert get_project_version(settings) == "1.2.3"
+
+    pyproject.write_text('[tool.poetry]\nversion = "2.0.0"\n', encoding="utf-8")
+    assert get_project_version(settings) == "2.0.0"
+
+
+def test_project_version_uses_built_wheel_for_dynamic_metadata(tmp_path):
+    project = tmp_path / "project"
+    dist = tmp_path / "dist"
+    project.mkdir()
+    dist.mkdir()
+    (project / "pyproject.toml").write_text('[project]\ndynamic = ["version"]\n', encoding="utf-8")
+    wheel = dist / "example.whl"
+    with ZipFile(wheel, "w") as archive:
+        archive.writestr("example.dist-info/METADATA", "Metadata-Version: 2.5\nVersion: 3.4.5\n")
+    (dist / IVALDI.WHEEL_MANIFEST).write_text(wheel.name, encoding="utf-8")
+    settings = SimpleNamespace(
+        app=SimpleNamespace(version="9.9.9"),
+        dirs=SimpleNamespace(project=project, dist=dist),
+    )
+
+    assert get_project_version(settings) == "3.4.5"
+
+
+def test_project_version_falls_back_to_app_version(tmp_path):
+    settings = SimpleNamespace(
+        app=SimpleNamespace(version="9.9.9"),
+        dirs=SimpleNamespace(project=tmp_path / "project", dist=tmp_path / "dist"),
+    )
+
+    assert get_project_version(settings) == "9.9.9"
+
+
+def test_project_version_warns_when_using_implicit_fallback(tmp_path, caplog):
+    settings = SimpleNamespace(
+        app=App(),
+        dirs=SimpleNamespace(project=tmp_path / "project", dist=tmp_path / "dist"),
+    )
+
+    assert get_project_version(settings) == "0.0.1"
+    assert "implicit fallback version 0.0.1" in caplog.text
+
+
 def test_build_executable_adds_windows_runtime_flag(tmp_path, monkeypatch):
     package = tmp_path / "ivaldi"
     payload = package / "dist"
     output = tmp_path / "output"
+    project = tmp_path / "project"
     payload.mkdir(parents=True)
+    project.mkdir()
+    (project / "pyproject.toml").write_text('[project]\nversion = "4.5.6"\n', encoding="utf-8")
     settings = SimpleNamespace(
-        dirs=SimpleNamespace(dist=payload, output=output, project=tmp_path / "project"),
+        app=SimpleNamespace(version="9.9.9"),
+        dirs=SimpleNamespace(dist=payload, output=output, project=project),
         platform=SimpleNamespace(alias="app.exe", name=None, location="app"),
-        nuitka=Nuitka(build_args=[]),
+        nuitka=Nuitka(build_args=[], company_name="Example Company"),
     )
     captured = {}
     monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
@@ -157,6 +215,8 @@ def test_build_executable_adds_windows_runtime_flag(tmp_path, monkeypatch):
     build_executable(package, settings)
 
     assert "--include-windows-runtime-dlls=yes" in captured["command"]
+    assert "--file-version=4.5.6" in captured["command"]
+    assert "--product-version=4.5.6" in captured["command"]
 
 
 def test_build_executable_embeds_payload_and_uses_platform_alias(tmp_path, monkeypatch):
@@ -171,6 +231,7 @@ def test_build_executable_embeds_payload_and_uses_platform_alias(tmp_path, monke
     icon.touch()
     (package / "__main__.py").touch()
     settings = SimpleNamespace(
+        app=SimpleNamespace(version="1.2.3"),
         dirs=SimpleNamespace(dist=payload, output=output, project=project),
         platform=SimpleNamespace(alias="wrapped-app", name="Wrapped App", location="com.example.wrapped-app"),
         nuitka=Nuitka(
@@ -276,7 +337,8 @@ def test_nuitka_metadata_resolves_project_icon(tmp_path, monkeypatch, system, op
     icon.parent.mkdir(parents=True)
     icon.touch()
     settings = SimpleNamespace(
-        dirs=SimpleNamespace(project=project),
+        app=SimpleNamespace(version="1.2.3"),
+        dirs=SimpleNamespace(project=project, dist=tmp_path / "dist"),
         nuitka=Nuitka(
             company_name="Something",
             product_name="SomethingElse",
@@ -292,6 +354,33 @@ def test_nuitka_metadata_resolves_project_icon(tmp_path, monkeypatch, system, op
     assert "--product-name=SomethingElse" in arguments
     assert "--file-description=Some CLI" in arguments
     assert f"--{option}={icon.resolve()}" in arguments
+
+
+def test_nuitka_metadata_adds_required_windows_versions(tmp_path, monkeypatch):
+    settings = SimpleNamespace(
+        app=SimpleNamespace(version="1.2.3"),
+        dirs=SimpleNamespace(project=tmp_path, dist=tmp_path / "dist"),
+        nuitka=Nuitka(company_name="Something"),
+    )
+    monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
+
+    arguments = get_nuitka_metadata_args(settings)
+
+    assert "--file-version=1.2.3" in arguments
+    assert "--product-version=1.2.3" in arguments
+
+
+@pytest.mark.parametrize("version", ["", "1.2.3.4.5", "1.2.beta", "1.2.65536"])
+def test_nuitka_metadata_rejects_invalid_windows_version(tmp_path, monkeypatch, version):
+    settings = SimpleNamespace(
+        app=SimpleNamespace(version=version),
+        dirs=SimpleNamespace(project=tmp_path, dist=tmp_path / "dist"),
+        nuitka=Nuitka(company_name="Something"),
+    )
+    monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
+
+    with pytest.raises(ValueError, match="application version.*Windows"):
+        get_nuitka_metadata_args(settings)
 
 
 def test_nuitka_metadata_rejects_missing_icon(tmp_path):

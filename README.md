@@ -136,7 +136,7 @@ All default settings and flags are visible in [the ivaldi settings dataclass](ht
     type: Literal[true, false, 'install', 'run']
 [nuitka]:
   description: Nuitka metadata is passed as `--company-name`, `--product-name`, and `--file-description`. 
-  note: Relative icon paths are resolved from the wrapped project and translated to the platform-specific Nuitka icon option.
+  note: Relative icon paths are resolved from the wrapped project and translated to the platform-specific Nuitka icon option. On Windows, setting `company-name` also passes the wrapped project's version as Nuitka's file and product versions. Ivaldi checks `[project].version`, legacy `[tool.poetry].version`, and built wheel metadata before falling back to `[app].version`. If no version is configured, Ivaldi warns and uses the implicit `0.0.1` fallback. The resolved version must contain one to four numbers between 0 and 65535.
   name: 
     description: The name to give your executable program
     type: str

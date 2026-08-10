@@ -23,6 +23,7 @@ class App:
         if isinstance(self.install, dict):
             self.install = AppInstall(**self.install)
 
+    version: str = "0.0.1"
     entrypoint: str = None
     include: list[str] = field(default_factory=list)
     exclude: list[str] = field(

@@ -4,8 +4,10 @@ import shutil
 import subprocess
 import sys
 import tomllib
+from email.parser import BytesParser
 from pathlib import Path
 from types import SimpleNamespace
+from zipfile import ZipFile
 
 from build import ProjectBuilder
 from build.env import DefaultIsolatedEnv
@@ -107,6 +109,35 @@ def get_executable_name(settings) -> str:
     return name
 
 
+def get_project_version(settings) -> str:
+    """Resolve the wrapped project's version, with app.version as fallback."""
+    pyproject = settings.dirs.project / "pyproject.toml"
+    if pyproject.is_file():
+        with open(pyproject, "rb") as file:
+            config = tomllib.load(file)
+        version = config.get("project", {}).get("version")
+        if version is None:
+            version = config.get("tool", {}).get("poetry", {}).get("version")
+        if version is not None:
+            return str(version)
+
+    manifest = settings.dirs.dist / IVALDI.WHEEL_MANIFEST
+    if manifest.is_file():
+        wheel = settings.dirs.dist / manifest.read_text(encoding="utf-8").strip()
+        if wheel.is_file():
+            with ZipFile(wheel) as archive:
+                metadata_files = [name for name in archive.namelist() if name.endswith(".dist-info/METADATA")]
+                if len(metadata_files) == 1:
+                    version = BytesParser().parsebytes(archive.read(metadata_files[0])).get("Version")
+                    if version:
+                        return version
+
+    version = str(settings.app.version)
+    if version == "0.0.1":
+        logger.warning("No application version metadata found; using the implicit fallback version 0.0.1")
+    return version
+
+
 def get_nuitka_metadata_args(settings) -> list[str]:
     """Build Nuitka metadata and platform-specific icon arguments."""
     arguments = []
@@ -117,6 +148,13 @@ def get_nuitka_metadata_args(settings) -> list[str]:
     ):
         if value:
             arguments.append(f"--{option}={value}")
+
+    if platform.system() == "Windows" and settings.nuitka.company_name:
+        version = get_project_version(settings)
+        version_parts = version.split(".")
+        if not 1 <= len(version_parts) <= 4 or any(not part.isdigit() or int(part) > 65535 for part in version_parts):
+            raise ValueError("The application version must contain one to four numbers between 0 and 65535 for Windows builds")
+        arguments.extend((f"--file-version={version}", f"--product-version={version}"))
 
     if settings.nuitka.icon:
         icon = Path(settings.nuitka.icon)

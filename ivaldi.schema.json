@@ -67,7 +67,9 @@
       ],
       "properties": {
         "version": {
-          "type": "string"
+          "type": "string",
+          "description": "Fallback application version when project or built wheel metadata does not provide one.",
+          "default": "0.0.1"
         },
         "entrypoint": {
           "type": "string",
