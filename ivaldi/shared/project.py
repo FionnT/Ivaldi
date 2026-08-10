@@ -24,12 +24,6 @@ def get_wheel_requirement(wheel: Path, all_extras: bool) -> str:
 
 def handle_install_flags(settings):
     install_flags = []
-    if settings.app.install.compile_bytecode:
-        install_flags.append("--compile-bytecode")
-    if settings.app.install.exact:
-        install_flags.append("--exact")
-    if settings.app.install.strict:
-        install_flags.append("--strict")
     if settings.app.build.include_wheels:
         install_flags.append("--no-index")
     return install_flags
@@ -65,8 +59,6 @@ def install_project(settings):
     dist = f"{settings.dirs.dist.resolve()!s}"
     uv_cache = f"{settings.dirs.uv.resolve()!s}"
 
-    install_flags = handle_install_flags(settings)
-
     command = [
         uv,
         "pip",
@@ -76,16 +68,10 @@ def install_project(settings):
         uv_cache,
         "--python",
         python,
-        "-q",
-        "--no-config",
-        "--no-cache",
-        *install_flags,
-        "--reinstall",
-        "--no-sources",
+        *settings.uv.install_args,
+        *handle_install_flags(settings),
         "--find-links",
         dist,
-        "--no-break-system-packages",
-        "--no-editable",
         "--directory",
         dist,
     ]

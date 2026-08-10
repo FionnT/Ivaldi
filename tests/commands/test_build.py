@@ -10,10 +10,12 @@ from ivaldi.shared.build import (
     build_project_wheel,
     get_configured_extras,
     get_executable_name,
+    get_nuitka_metadata_args,
     get_or_build_uv,
     prepare_build,
 )
 from ivaldi.types.enums import IVALDI
+from ivaldi.types.settings import Nuitka
 
 
 def test_prepare_build_recreates_stage_and_payload(tmp_path):
@@ -52,7 +54,8 @@ def test_build_project_wheel_uses_isolated_backend_and_writes_manifest(tmp_path,
             installs.append(requirements)
 
     class Builder:
-        build_system_requires = {"backend"}
+        def __init__(self):
+            self.build_system_requires = {"backend"}
 
         def get_requires_for_build(self, distribution):
             return {"wheel-requirement"}
@@ -112,8 +115,8 @@ def test_build_all_wheels_uses_manifest_extras_and_extra_arguments(tmp_path, mon
     uv.touch()
     settings = SimpleNamespace(
         app=SimpleNamespace(build=SimpleNamespace(all_extras=True)),
-        uv=SimpleNamespace(extra_args=["--native-tls"]),
-        uvx=SimpleNamespace(extra_args=["--isolated"]),
+        uv=SimpleNamespace(build_args=["--native-tls"]),
+        uvx=SimpleNamespace(build_args=["--isolated"]),
         dirs=SimpleNamespace(dist=dist, stage=stage, project=project),
     )
     captured = {}
@@ -154,6 +157,7 @@ def test_build_executable_adds_windows_runtime_flag(tmp_path, monkeypatch):
     settings = SimpleNamespace(
         dirs=SimpleNamespace(dist=payload, output=output, project=tmp_path / "project"),
         platform=SimpleNamespace(alias="app.exe", name=None, location="app"),
+        nuitka=Nuitka(build_args=[]),
     )
     captured = {}
     monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
@@ -167,13 +171,24 @@ def test_build_executable_adds_windows_runtime_flag(tmp_path, monkeypatch):
 def test_build_executable_embeds_payload_and_uses_platform_alias(tmp_path, monkeypatch):
     package = tmp_path / "ivaldi"
     payload = package / "dist"
-    output = tmp_path / "project/dist"
+    project = tmp_path / "project"
+    output = project / "dist"
+    icon = project / "docs/icon.png"
     package.mkdir()
     payload.mkdir()
+    icon.parent.mkdir(parents=True)
+    icon.touch()
     (package / "__main__.py").touch()
     settings = SimpleNamespace(
-        dirs=SimpleNamespace(dist=payload, output=output, project=tmp_path / "project"),
+        dirs=SimpleNamespace(dist=payload, output=output, project=project),
         platform=SimpleNamespace(alias="wrapped-app", name="Wrapped App", location="com.example.wrapped-app"),
+        nuitka=Nuitka(
+            build_args=["--clang"],
+            company_name="Example Company",
+            product_name="Wrapped App",
+            file_description="Wrapped application",
+            icon="docs/icon.png",
+        ),
     )
     captured = {}
 
@@ -193,6 +208,12 @@ def test_build_executable_embeds_payload_and_uses_platform_alias(tmp_path, monke
     assert "--onefile-cache-mode=cached" in captured["command"]
     assert "--onefile-tempdir-spec={CACHE_DIR}/com.example.wrapped-app" in captured["command"]
     assert "--python-flag=-m" in captured["command"]
+    assert "--clang" in captured["command"]
+    assert "--company-name=Example Company" in captured["command"]
+    assert "--product-name=Wrapped App" in captured["command"]
+    assert "--file-description=Wrapped application" in captured["command"]
+    icon_option = {"Darwin": "macos-app-icon", "Windows": "windows-icon-from-ico", "Linux": "linux-icon"}[platform.system()]
+    assert f"--{icon_option}={icon.resolve()}" in captured["command"]
     assert captured["command"][-1] == str(package.resolve())
     assert captured["kwargs"]["cwd"] == tmp_path
 
@@ -234,8 +255,8 @@ def test_build_all_wheels_uses_uv_tool_run(tmp_path, monkeypatch):
     uv.touch()
     settings = SimpleNamespace(
         app=SimpleNamespace(build=SimpleNamespace(all_extras=False)),
-        uv=SimpleNamespace(extra_args=None),
-        uvx=SimpleNamespace(extra_args=None),
+        uv=SimpleNamespace(build_args=[]),
+        uvx=SimpleNamespace(build_args=[]),
         dirs=SimpleNamespace(dist=dist, stage=stage, project=project),
     )
     captured = {}
@@ -248,3 +269,53 @@ def test_build_all_wheels_uses_uv_tool_run(tmp_path, monkeypatch):
     build_all_wheels(settings, wheel)
 
     assert captured["command"][:6] == [str(uv.resolve()), "tool", "run", "--from", "pip", "pip"]
+
+
+@pytest.mark.parametrize(
+    ("system", "option"),
+    [
+        ("Darwin", "macos-app-icon"),
+        ("Windows", "windows-icon-from-ico"),
+        ("Linux", "linux-icon"),
+    ],
+)
+def test_nuitka_metadata_resolves_project_icon(tmp_path, monkeypatch, system, option):
+    project = tmp_path / "project"
+    icon = project / "docs/icon.png"
+    icon.parent.mkdir(parents=True)
+    icon.touch()
+    settings = SimpleNamespace(
+        dirs=SimpleNamespace(project=project),
+        nuitka=Nuitka(
+            company_name="Neo4j",
+            product_name="Neoterm",
+            file_description="Support terminal",
+            icon="./docs/icon.png",
+        ),
+    )
+    monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: system)
+
+    arguments = get_nuitka_metadata_args(settings)
+
+    assert "--company-name=Neo4j" in arguments
+    assert "--product-name=Neoterm" in arguments
+    assert "--file-description=Support terminal" in arguments
+    assert f"--{option}={icon.resolve()}" in arguments
+
+
+def test_nuitka_metadata_rejects_missing_icon(tmp_path):
+    settings = SimpleNamespace(
+        dirs=SimpleNamespace(project=tmp_path),
+        nuitka=Nuitka(icon="missing.png"),
+    )
+    with pytest.raises(FileNotFoundError, match="configured Nuitka icon"):
+        get_nuitka_metadata_args(settings)
+
+
+def test_nuitka_metadata_rejects_icon_on_unsupported_platform(tmp_path, monkeypatch):
+    icon = tmp_path / "icon.png"
+    icon.touch()
+    settings = SimpleNamespace(dirs=SimpleNamespace(project=tmp_path), nuitka=Nuitka(icon=str(icon)))
+    monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Plan9")
+    with pytest.raises(RuntimeError, match="not supported"):
+        get_nuitka_metadata_args(settings)

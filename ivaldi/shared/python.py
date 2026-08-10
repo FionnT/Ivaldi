@@ -49,9 +49,9 @@ def install_python(settings):
     bin = f"{settings.dirs.bin.resolve()!s}"
     uv_cache = f"{settings.dirs.uv.resolve()!s}"
 
-    extra_flags = settings.python.install_flags or []
+    extra_flags = settings.python.install_args or []
 
-    flags = ["-q", "--no-config", "--cache-dir", uv_cache, "--no-registry", "--no-bin", "-i", bin] + extra_flags
+    flags = ["--cache-dir", uv_cache, "-i", bin] + extra_flags
 
     command = [uv, "python", "install", settings.python.version, *flags, "--directory", dir]
     install = subprocess.run(

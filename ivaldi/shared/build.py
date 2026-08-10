@@ -85,10 +85,10 @@ def build_all_wheels(settings, wheel_location: Path | None = None):
 
     command = [
         str(uv.resolve()),
-        *(settings.uv.extra_args or []),
+        *(settings.uv.build_args or []),
         "tool",
         "run",
-        *(settings.uvx.extra_args or []),
+        *(settings.uvx.build_args or []),
         "--from",
         "pip",
         "pip",
@@ -107,6 +107,36 @@ def get_executable_name(settings) -> str:
     return name
 
 
+def get_nuitka_metadata_args(settings) -> list[str]:
+    """Build Nuitka metadata and platform-specific icon arguments."""
+    arguments = []
+    for option, value in (
+        ("company-name", settings.nuitka.company_name),
+        ("product-name", settings.nuitka.product_name),
+        ("file-description", settings.nuitka.file_description),
+    ):
+        if value:
+            arguments.append(f"--{option}={value}")
+
+    if settings.nuitka.icon:
+        icon = Path(settings.nuitka.icon)
+        if not icon.is_absolute():
+            icon = settings.dirs.project / icon
+        icon = icon.resolve()
+        if not icon.is_file():
+            raise FileNotFoundError(f"Could not find the configured Nuitka icon: {icon}")
+        icon_option = {
+            "Darwin": "macos-app-icon",
+            "Windows": "windows-icon-from-ico",
+            "Linux": "linux-icon",
+        }.get(platform.system())
+        if icon_option is None:
+            raise RuntimeError(f"Nuitka icons are not supported on {platform.system()}")
+        arguments.append(f"--{icon_option}={icon}")
+
+    return arguments
+
+
 def build_executable(location: Path, settings) -> Path:
     """Compile Ivaldi as a one-file wrapper containing the installation payload."""
     output_dir = settings.dirs.output
@@ -117,24 +147,18 @@ def build_executable(location: Path, settings) -> Path:
         sys.executable,
         "-m",
         "nuitka",
-        "--mode=onefile",
-        "--assume-yes-for-downloads",
         f"--output-dir={output_dir.resolve()}",
         f"--output-filename={output_name}",
         f"--include-data-dir={settings.dirs.dist.resolve()}=ivaldi/dist",
-        "--remove-output",
-        "--no-prefer-source-code",
-        "--static-libpython=no",
-        "--onefile-no-compression",
-        "--onefile-cache-mode=cached",
         f"--onefile-tempdir-spec={{CACHE_DIR}}/{settings.platform.location}",
-        "--nofollow-import-to=*.tests",
-        "--nofollow-import-to=tests",
-        "--nofollow-import-to=*.benchmarks",
-        "--nofollow-import-to=_decimal",
+        "--onefile-cache-mode=cached",
+        "--mode=onefile",
         "--python-flag=-m",
+        *(settings.nuitka.build_args or []),
+        *get_nuitka_metadata_args(settings),
         str(location.resolve()),
     ]
+
     logger.info(f"Running Nuitka build with: command {command!s}")
     if platform.system() == "Windows":
         command.insert(-1, "--include-windows-runtime-dlls=yes")

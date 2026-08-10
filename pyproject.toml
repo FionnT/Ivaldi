@@ -1,6 +1,6 @@
 [project]
 name = "ivaldi"
-version = "0.2.19"
+version = "0.2.21"
 description = "Create a portable version of your Python Project"
 authors = [
     {name = "Fionn Tolster"}
@@ -28,23 +28,6 @@ build-backend = "poetry.core.masonry.api"
 [tool.poetry]
 packages = [{ include = "ivaldi", from="." }, ]
 include = []
-
-[tool.nuitka]
-project = true
-mode = "onefile"
-no-prefer-source-code = true
-assume-yes-for-downloads = true
-remove-output = true
-static-libpython = "no"
-nofollow-import-to = ["*.tests", "tests", "*.benchmarks", "_decimal"]
-enable-plugin = []
-include-package = []
-# OS compatability
-include-windows-runtime-dlls = "yes"
-
-# Runtime optimisations
-onefile-cache-mode = "cached"
-onefile-no-compression = true
 
 [tool.coverage.run]
 relative_files = true

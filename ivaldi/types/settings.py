@@ -51,19 +51,37 @@ class UV:
     entrypoint: str = None
     version: str = "0.12.3"
     repo: str = "https://releases.astral.sh/github/uv/releases/download"
-    extra_args: list[str] = None
+    install_args: list[str] = field(
+        default_factory=lambda: [
+            "--no-break-system-packages",
+            "--no-editable",
+            "--reinstall",
+            "--no-sources",
+            "-q",
+            "--no-config",
+            "--no-cache",
+            "--compile-bytecode",
+        ]
+    )
+    build_args: list[str] = field(default_factory=list)
 
 
 @dataclass
 class UVX:
-    extra_args: list[str] = None
+    build_args: list[str] = field(default_factory=list)
 
 
 @dataclass
 class Python:
     version: str = None
-    gil: bool = True
-    install_flags: list[str] = None
+    install_args: list[str] = field(
+        default_factory=lambda: [
+            "--no-registry",
+            "-q",
+            "--no-config",
+            "--no-bin",
+        ]
+    )
 
 
 @dataclass
@@ -104,6 +122,27 @@ class Directories:
 
 
 @dataclass
+class Nuitka:
+    build_args: list[str] = field(
+        default_factory=lambda: [
+            "--nofollow-import-to=*.tests",
+            "--nofollow-import-to=tests",
+            "--nofollow-import-to=*.benchmarks",
+            "--nofollow-import-to=_decimal",
+            "--assume-yes-for-downloads",
+            "--remove-output",
+            "--no-prefer-source-code",
+            "--static-libpython=no",
+            "--onefile-no-compression",
+        ]
+    )
+    company_name: str = None
+    product_name: str = None
+    file_description: str = None
+    icon: str = None
+
+
+@dataclass
 class Executables:
     uv: Path = None
     uvx: Path = None
@@ -114,8 +153,9 @@ class Executables:
 class Settings:
     app: App = field(default_factory=App)
     bin: Executables = field(default_factory=Executables)
-    dirs: Directories = field(default_factory=Platform)
+    dirs: Directories = field(default_factory=Directories)
     platform: Platform = field(default_factory=Platform)
     python: Python = field(default_factory=Python)
     uv: UV = field(default_factory=UV)
     uvx: UVX = field(default_factory=UVX)
+    nuitka: Nuitka = field(default_factory=Nuitka)

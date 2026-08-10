@@ -1,19 +1,12 @@
+import json
 import platform
+import tomllib
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
-from ivaldi.shared.settings import (
-    find_build_file,
-    handle_required_settings,
-    is_installed,
-    load_install_directories,
-    load_runtime_directories,
-    load_settings,
-    parse_settings,
-    set_platform_home,
-)
+from ivaldi.shared.settings import extract_pyproject_config, find_build_file, format_toml_key, format_toml_value, handle_required_settings, is_installed, load_install_directories, load_runtime_directories, load_settings, parse_settings, set_platform_home
 from ivaldi.types.enums import IVALDI
 
 
@@ -72,6 +65,103 @@ def test_find_build_file_raises_when_absent(tmp_path):
         find_build_file(tmp_path)
 
 
+def test_find_build_file_extracts_tool_ivaldi_from_pyproject(tmp_path, caplog):
+    project = tmp_path / "project"
+    nested = project / "src/package"
+    nested.mkdir(parents=True)
+    pyproject = project / "pyproject.toml"
+    pyproject.write_text(
+        "[project]\nname='unrelated-project'\nversion='1.0'\n"
+        "[tool.other]\nenabled=true\n"
+        "[tool.ivaldi.app]\nentrypoint='package:main'\ninclude=['package/**']\n"
+        "[tool.ivaldi.app.build]\ninclude_wheels=true\n"
+        "[tool.ivaldi.python]\nversion='3.14.5'\ninstall_args=[]\n"
+        "[tool.ivaldi.nuitka]\ncompany-name='Example'\nicon='icon.png'\n"
+        "[tool.ivaldi.darwin]\nlocation='example.app'\nalias='example'\nadmin='install'\n",
+        encoding="utf-8",
+    )
+
+    generated = find_build_file(nested)
+
+    assert generated == project / "ivaldi.toml"
+    with open(generated, "rb") as file:
+        config = tomllib.load(file)
+    assert config == {
+        "app": {
+            "entrypoint": "package:main",
+            "include": ["package/**"],
+            "build": {"include_wheels": True},
+        },
+        "python": {"version": "3.14.5", "install_args": []},
+        "nuitka": {"company-name": "Example", "icon": "icon.png"},
+        "darwin": {"location": "example.app", "alias": "example", "admin": "install"},
+    }
+    assert "project" not in config and "tool" not in config
+    assert "Generated" in generated.read_text(encoding="utf-8")
+    assert "Generated" in caplog.text
+
+
+def test_find_build_file_prefers_existing_standalone_config(tmp_path):
+    standalone = tmp_path / "ivaldi.toml"
+    standalone.write_text("[app]\nentrypoint='standalone:main'\n", encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text(
+        "[tool.ivaldi.app]\nentrypoint='embedded:main'\n",
+        encoding="utf-8",
+    )
+
+    assert find_build_file(tmp_path) == standalone
+    assert "standalone:main" in standalone.read_text(encoding="utf-8")
+
+
+def test_find_build_file_refreshes_generated_config(tmp_path):
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text(
+        "[tool.ivaldi.app]\nentrypoint='first:main'\n",
+        encoding="utf-8",
+    )
+    generated = find_build_file(tmp_path)
+    assert "first:main" in generated.read_text(encoding="utf-8")
+
+    pyproject.write_text(
+        "[tool.ivaldi.app]\nentrypoint='second:main'\n",
+        encoding="utf-8",
+    )
+
+    assert find_build_file(tmp_path) == generated
+    content = generated.read_text(encoding="utf-8")
+    assert "second:main" in content
+    assert "first:main" not in content
+    assert content.startswith("#:schema https://")
+
+
+def test_extract_pyproject_config_ignores_missing_file_and_unconfigured_pyproject(tmp_path):
+    assert extract_pyproject_config(tmp_path / "missing.toml") is None
+    pyproject = tmp_path / "pyproject.toml"
+    pyproject.write_text("[project]\nname='app'\n", encoding="utf-8")
+    assert extract_pyproject_config(pyproject) is None
+
+
+def test_toml_serializer_formats_supported_values_and_quotes_keys():
+    assert format_toml_value("value") == '"value"'
+    assert format_toml_value(True) == "true"
+    assert format_toml_value(3) == "3"
+    assert format_toml_value(1.5) == "1.5"
+    assert format_toml_value(["one", "two"]) == '["one", "two"]'
+    assert format_toml_key("company-name") == "company-name"
+    assert format_toml_key("company name") == '"company name"'
+    assert format_toml_key("café") == '"café"'
+    with pytest.raises(TypeError, match="Unsupported Ivaldi"):
+        format_toml_value(object())
+
+
+def test_ivaldi_schema_defines_standalone_and_tool_table_shape():
+    schema_path = Path(__file__).parents[2] / "ivaldi.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    assert schema["$schema"].endswith("2020-12/schema")
+    assert schema["properties"]["nuitka"]["$ref"] == "#/$defs/nuitka"
+    assert "The same object may be placed under [tool.ivaldi]" in schema["description"]
+
+
 def test_handle_required_settings_reports_all_missing_fields():
     settings = make_settings(location=None)
     settings.app.entrypoint = None
@@ -92,9 +182,7 @@ def test_parse_settings_builds_typed_settings(tmp_path, monkeypatch):
     system = platform.system().lower()
     config = tmp_path / "ivaldi.toml"
     config.write_text(
-        "[app]\nentrypoint='package:main'\n"
-        "[python]\nversion='3.14'\n"
-        f"[{system}]\nlocation='example.app'\nalias='app'\n",
+        f"[app]\nentrypoint='package:main'\n[python]\nversion='3.14'\n[{system}]\nlocation='example.app'\nalias='app'\n",
         encoding="utf-8",
     )
 
@@ -103,6 +191,33 @@ def test_parse_settings_builds_typed_settings(tmp_path, monkeypatch):
     assert settings.app.entrypoint == "package:main"
     assert settings.platform.location == "example.app"
     assert settings.dirs.project == tmp_path
+
+
+def test_parse_settings_supports_updated_tool_arguments_and_nuitka_metadata(tmp_path):
+    system = platform.system().lower()
+    config = tmp_path / "ivaldi.toml"
+    config.write_text(
+        "[app]\nentrypoint='package:main'\n"
+        "[uv]\nversion='0.12.3'\ninstall_args=['--offline']\nbuild_args=['--native-tls']\n"
+        "[uvx]\nbuild_args=['--isolated']\n"
+        "[python]\nversion='3.14.5'\ninstall_args=['--no-registry']\n"
+        "[nuitka]\nbuild_args=['--clang']\ncompany-name='Neo4j'\nproduct-name='Neoterm'\n"
+        "file-description='Support terminal'\nicon='./docs/icon.png'\n"
+        f"[{system}]\nlocation='neoterm'\nalias='neoterm'\n",
+        encoding="utf-8",
+    )
+
+    settings = parse_settings(config, tmp_path, tmp_path / "dist", tmp_path / "stage", tmp_path / "output")
+
+    assert settings.uv.install_args == ["--offline"]
+    assert settings.uv.build_args == ["--native-tls"]
+    assert settings.uvx.build_args == ["--isolated"]
+    assert settings.python.install_args == ["--no-registry"]
+    assert settings.nuitka.build_args == ["--clang"]
+    assert settings.nuitka.company_name == "Neo4j"
+    assert settings.nuitka.product_name == "Neoterm"
+    assert settings.nuitka.file_description == "Support terminal"
+    assert settings.nuitka.icon == "./docs/icon.png"
 
 
 def test_parse_settings_translates_invalid_fields_to_key_error(tmp_path):

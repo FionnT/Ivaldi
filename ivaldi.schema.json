@@ -1,0 +1,247 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://raw.githubusercontent.com/FionnT/Ivaldi/main/ivaldi.schema.json",
+  "title": "Ivaldi configuration",
+  "description": "Configuration for building and installing an Ivaldi-wrapped Python application. The same object may be placed under [tool.ivaldi] in pyproject.toml.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "app",
+    "python"
+  ],
+  "properties": {
+    "app": {
+      "$ref": "#/$defs/app"
+    },
+    "uv": {
+      "$ref": "#/$defs/uv"
+    },
+    "uvx": {
+      "$ref": "#/$defs/uvx"
+    },
+    "python": {
+      "$ref": "#/$defs/python"
+    },
+    "nuitka": {
+      "$ref": "#/$defs/nuitka"
+    },
+    "darwin": {
+      "$ref": "#/$defs/platform"
+    },
+    "linux": {
+      "$ref": "#/$defs/platform"
+    },
+    "windows": {
+      "$ref": "#/$defs/platform"
+    }
+  },
+  "anyOf": [
+    {
+      "required": [
+        "darwin"
+      ]
+    },
+    {
+      "required": [
+        "linux"
+      ]
+    },
+    {
+      "required": [
+        "windows"
+      ]
+    }
+  ],
+  "$defs": {
+    "stringArray": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "app": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "entrypoint"
+      ],
+      "properties": {
+        "version": {
+          "type": "string"
+        },
+        "entrypoint": {
+          "type": "string",
+          "minLength": 1
+        },
+        "include": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "exclude": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "build": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "include_wheels": {
+              "type": "boolean",
+              "default": false
+            },
+            "all_extras": {
+              "type": "boolean",
+              "default": false
+            }
+          }
+        },
+        "install": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "strict": {
+              "type": "boolean",
+              "default": false
+            },
+            "exact": {
+              "type": "boolean",
+              "default": false
+            },
+            "compile_bytecode": {
+              "type": "boolean",
+              "default": true
+            }
+          }
+        }
+      }
+    },
+    "uv": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "location": {
+          "type": "string"
+        },
+        "entrypoint": {
+          "type": "string"
+        },
+        "version": {
+          "type": "string",
+          "default": "0.12.3"
+        },
+        "repo": {
+          "type": "string",
+          "format": "uri"
+        },
+        "install_args": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "build_args": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "uvx": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "build_args": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "python": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "version"
+      ],
+      "properties": {
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "install_args": {
+          "$ref": "#/$defs/stringArray"
+        }
+      }
+    },
+    "nuitka": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "build_args": {
+          "$ref": "#/$defs/stringArray"
+        },
+        "company-name": {
+          "type": "string"
+        },
+        "product-name": {
+          "type": "string"
+        },
+        "file-description": {
+          "type": "string"
+        },
+        "icon": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "location"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "location": {
+          "type": "string",
+          "minLength": 1
+        },
+        "alias": {
+          "type": "string",
+          "minLength": 1
+        },
+        "add_to_path": {
+          "type": "boolean",
+          "default": true
+        },
+        "admin": {
+          "oneOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "enum": [
+                "install",
+                "run",
+                "true",
+                "false"
+              ]
+            }
+          ],
+          "default": false
+        }
+      },
+      "anyOf": [
+        {
+          "required": [
+            "alias"
+          ]
+        },
+        {
+          "properties": {
+            "add_to_path": {
+              "const": false
+            }
+          },
+          "required": [
+            "add_to_path"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -17,7 +17,7 @@ def test_install_python_records_managed_interpreter(tmp_path, monkeypatch):
     settings = SimpleNamespace(
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=None),
         dirs=SimpleNamespace(app=tmp_path / "app", bin=tmp_path / "bin", uv=tmp_path / "cache"),
-        python=SimpleNamespace(version="3.14.5", install_flags=None),
+        python=SimpleNamespace(version="3.14.5", install_args=[]),
     )
     calls = []
 
@@ -51,7 +51,7 @@ def make_python_settings(tmp_path):
     return SimpleNamespace(
         bin=SimpleNamespace(uv=tmp_path / "bin/uv", python=None),
         dirs=SimpleNamespace(app=tmp_path / "app", bin=tmp_path / "bin", uv=tmp_path / "cache"),
-        python=SimpleNamespace(version="3.14", install_flags=["--default"]),
+        python=SimpleNamespace(version="3.14", install_args=["--default"]),
     )
 
 

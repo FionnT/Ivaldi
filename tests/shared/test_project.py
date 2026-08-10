@@ -6,7 +6,7 @@ import pytest
 
 from ivaldi.shared.project import get_wheel_requirement, handle_install_flags, handle_wheel, install_project, mark_installed
 from ivaldi.types.enums import IVALDI
-from ivaldi.types.settings import App
+from ivaldi.types.settings import UV, App
 
 
 def test_install_project_targets_managed_python(tmp_path, monkeypatch):
@@ -16,6 +16,7 @@ def test_install_project_targets_managed_python(tmp_path, monkeypatch):
     python = tmp_path / "managed/bin/python"
     settings = SimpleNamespace(
         app=App(),
+        uv=UV(),
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=python),
         dirs=SimpleNamespace(app=tmp_path, dist=dist, uv=tmp_path / "cache"),
     )
@@ -42,6 +43,7 @@ def test_install_project_uses_manifest_when_dependencies_are_bundled(tmp_path, m
     (dist / IVALDI.WHEEL_MANIFEST).write_text(app_wheel.name, encoding="utf-8")
     settings = SimpleNamespace(
         app=App(build={"include_wheels": True}),
+        uv=UV(),
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=tmp_path / "venv/bin/python"),
         dirs=SimpleNamespace(app=tmp_path, dist=dist, uv=tmp_path / "cache"),
     )
@@ -71,6 +73,7 @@ def test_install_project_requests_every_wheel_extra(tmp_path, monkeypatch):
         )
     settings = SimpleNamespace(
         app=App(build={"all_extras": True}),
+        uv=UV(),
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=tmp_path / "venv/bin/python"),
         dirs=SimpleNamespace(app=tmp_path, dist=dist, uv=tmp_path / "cache"),
     )
@@ -104,13 +107,8 @@ def test_wheel_requirement_without_extras_is_plain_path(tmp_path):
 
 
 def test_handle_install_flags_includes_every_enabled_option():
-    settings = SimpleNamespace(
-        app=App(
-            build={"include_wheels": True},
-            install={"compile_bytecode": True, "exact": True, "strict": True},
-        )
-    )
-    assert handle_install_flags(settings) == ["--compile-bytecode", "--exact", "--strict", "--no-index"]
+    settings = SimpleNamespace(app=App(build={"include_wheels": True}))
+    assert handle_install_flags(settings) == ["--no-index"]
 
 
 @pytest.mark.parametrize("manifest", ["", "../app.whl"])
@@ -142,6 +140,7 @@ def test_install_project_reports_nonzero_result(tmp_path, monkeypatch):
     (tmp_path / "app.whl").touch()
     settings = SimpleNamespace(
         app=App(),
+        uv=UV(),
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=tmp_path / "python"),
         dirs=SimpleNamespace(app=tmp_path, dist=tmp_path, uv=tmp_path / "cache"),
     )
