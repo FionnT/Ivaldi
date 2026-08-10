@@ -69,7 +69,7 @@ version = "3.14.5"
 
 ```
 
-When no standalone configuration exists, Ivaldi extracts only `[tool.ivaldi]` and writes it to a project-root `ivaldi.toml` before building. Generated files include a schema directive and are refreshed when `[tool.ivaldi]` changes; a hand-written standalone file remains authoritative. The formal configuration definition is available in [`ivaldi.schema.json`](https://github.com/FionnT/Ivaldi/ivaldi.schema.json), and the same schema describes the object nested under `[tool.ivaldi]`.
+When no standalone configuration exists, Ivaldi extracts only `[tool.ivaldi]` and writes it to a project-root `ivaldi.toml` before building. Generated files include a schema directive and are refreshed when `[tool.ivaldi]` changes; a hand-written standalone file remains authoritative. The formal configuration definition is available in [`ivaldi.schema.json`](https://github.com/FionnT/Ivaldi/blob/main/ivaldi.schema.json), and the same schema describes the object nested under `[tool.ivaldi]`.
 
 --- 
 
@@ -77,7 +77,7 @@ When no standalone configuration exists, Ivaldi extracts only `[tool.ivaldi]` an
 
 ## Configuration Flags
 
-All default settings and flags are visible in [the ivaldi settings dataclass](https://github.com/FionnT/Ivaldi/ivaldi/types/settings.py)
+All default settings and flags are visible in [the ivaldi settings dataclass](https://github.com/FionnT/Ivaldi/blob/main/ivaldi/types/settings.py)
 
 
 ```yaml
