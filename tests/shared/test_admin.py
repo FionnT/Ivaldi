@@ -57,6 +57,41 @@ def test_sudo_user_uses_original_account(monkeypatch, tmp_path):
     assert user_home() == tmp_path / "home"
 
 
+def test_sudo_user_requires_sudo_environment(monkeypatch):
+    monkeypatch.setattr("ivaldi.shared.admin.os.name", "posix")
+    monkeypatch.setattr("ivaldi.shared.admin.os.geteuid", lambda: 0)
+    monkeypatch.delenv("SUDO_UID", raising=False)
+    monkeypatch.delenv("SUDO_GID", raising=False)
+
+    assert sudo_user() is None
+
+
+@pytest.mark.parametrize(
+    ("uid", "gid"),
+    [("invalid", "1002"), ("1001", "invalid"), ("0", "1002"), ("1001", "-1")],
+)
+def test_sudo_user_rejects_invalid_ids(monkeypatch, uid, gid):
+    monkeypatch.setattr("ivaldi.shared.admin.os.name", "posix")
+    monkeypatch.setattr("ivaldi.shared.admin.os.geteuid", lambda: 0)
+    monkeypatch.setenv("SUDO_UID", uid)
+    monkeypatch.setenv("SUDO_GID", gid)
+
+    assert sudo_user() is None
+
+
+def test_sudo_user_rejects_an_unknown_account(monkeypatch):
+    def unknown_user(_uid):
+        raise KeyError
+
+    monkeypatch.setattr("ivaldi.shared.admin.os.name", "posix")
+    monkeypatch.setattr("ivaldi.shared.admin.os.geteuid", lambda: 0)
+    monkeypatch.setenv("SUDO_UID", "1001")
+    monkeypatch.setenv("SUDO_GID", "1002")
+    monkeypatch.setitem(sys.modules, "pwd", SimpleNamespace(getpwuid=unknown_user))
+
+    assert sudo_user() is None
+
+
 def test_restore_sudo_ownership_repairs_the_complete_tree(monkeypatch, tmp_path):
     app = tmp_path / "app"
     nested = app / "venv"
