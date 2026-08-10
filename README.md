@@ -81,52 +81,60 @@ All default settings and flags are visible in [the ivaldi settings dataclass](/i
 
 
 ```yaml
-app.entrypoint: 
-  description: The entrypoint for your application. Can be a module e.g. `mycli` or a specific command, e.g. `mycli:main`
-  type: str
-  example: mycli:main
-app.include: 
-  description: Controls which source files are copied to Ivaldi's clean wheel-build stage. 
-  note: `pyproject.toml` is always included. Add any files referenced by the build configuration, such as a README or license.
-  type: list[glob]
-  example: ["*.py"]
-app.exclude: 
-  description: Specify files to exclude by a matching pattern. 
-  note: If a file would be excluded, but a more specific include would include it, it is superseded by include
-  type: list[glob]
-  example: ["*.pyc"]
-[uv,python].version:
-  description: Which Python or UVX version to use for your application. 
-  No compatability checks are performed, and the wrapped executable does not compile with these versions. 
-  `ivaldi build` will use local Python and UV, fetching only UV if required.
-[uv,uvx,python].install_args:
-  description: Are passed through to the corresponding UV, UVX, Python, and Nuitka commands. 
-  note: Overwrites defaults, does not merge them.
-  type: list[flag]
-  example: ["--compile",]
-[uv,uvx,python].build_args:
-  description: Are passed through to the corresponding UV, UVX, Python, and Nuitka commands. 
-  note: Overwrites defaults, does not merge them.
-  type: list[flag]
-  example: ["--compile",]
-add_to_path:
-  description: When true, Ivaldi copies the launcher into the platform bin directory (e.g. `~/.local/bin`, `~/.bin`)
-  type: bool
-alias: 
-  description: In Unix-like systems, adds an idempotent managed alias pointing to that copy.
-  note: Attempts to locate the active shell's startup file (`.zshrc`, `.bash_profile`, `.bashrc`, Fish's `config.fish`, or `.profile` as applicable). 
-  When false, no command alias is installed. Your command might still be accessible if `add_to_path` was `true`
-  type: string
-admin: 
-  description: Requires sudo/administrator privileges for installation or application runs.
-  note: Ivaldi does not elevate itself. It stops and asks to be rerun with sudo (or as Administrator on Windows). 
-  values: 
-    - `install` requires sudo only for first-run installation. exits after installation so the application can subsequently be run without elevation.
-    - `run` requires sudo only for running the installed application.
-    - `true` requires sudo for running and installation.
-    - `false` never requires them. 
-  type: Literal[true, false, 'install', 'run']
-nuitka:
+[app]
+  entrypoint: 
+    description: The entrypoint for your application. Can be a module e.g. `mycli` or a specific command, e.g. `mycli:main`
+    type: str
+    example: mycli:main
+  include: 
+    description: Controls which source files are copied to Ivaldi's clean wheel-build stage. 
+    note: `pyproject.toml` is always included. Add any files referenced by the build configuration, such as a README or license.
+    type: list[glob]
+    example: ["*.py"]
+  exclude: 
+    description: Specify files to exclude by a matching pattern. 
+    note: If a file would be excluded, but a more specific include would include it, it is superseded by include
+    type: list[glob]
+    example: ["*.pyc"]
+[uv,python]
+  version:
+    description: Which Python or UVX version to use for your application. 
+    No compatability checks are performed, and the wrapped executable does not compile with these versions. 
+    `ivaldi build` will use local Python and UV, fetching only UV if required.
+  install_args:
+    description: Are passed through to the corresponding UV, UVX, Python, and Nuitka commands. 
+    note: Overwrites defaults, does not merge them.
+    type: list[flag]
+    example: ["--compile"]
+[uv,uvx,python,nuitka]:
+  build_args:
+    description: Are passed through to the corresponding UV, UVX, Python, and Nuitka commands. 
+    note: Overwrites defaults, does not merge them.
+    type: list[flag]
+    example: ["--compile",]
+[darwin, windows, linux]:
+  location: 
+    description: The name for a specific subdirectory to install the project to, inside cache directory for that platform (e.g. $HOME/local/.bin)
+    type: str
+    example: mycli
+  add_to_path:
+    description: When true, Ivaldi copies the launcher into the platform bin directory (e.g. `~/.local/bin`, `~/.bin`)
+    type: bool
+  alias: 
+    description: In Unix-like systems, adds an idempotent managed alias pointing to that copy.
+    note: Attempts to locate the active shell's startup file (`.zshrc`, `.bash_profile`, `.bashrc`, Fish's `config.fish`, or `.profile` as applicable). 
+    When false, no command alias is installed. Your command might still be accessible if `add_to_path` was `true`
+    type: string
+  admin: 
+    description: Requires sudo/administrator privileges for installation or application runs.
+    note: Ivaldi does not elevate itself. It stops and asks to be rerun with sudo (or as Administrator on Windows). 
+    values: 
+      - `install` requires sudo only for first-run installation. exits after installation so the application can subsequently be run without elevation.
+      - `run` requires sudo only for running the installed application.
+      - `true` requires sudo for running and installation.
+      - `false` never requires them. 
+    type: Literal[true, false, 'install', 'run']
+[nuitka]:
   description: Nuitka metadata is passed as `--company-name`, `--product-name`, and `--file-description`. 
   note: Relative icon paths are resolved from the wrapped project and translated to the platform-specific Nuitka icon option.
   name: 
