@@ -3,9 +3,10 @@ name = "ivaldi"
 version = "0.3.1"
 description = "Create a portable version of your Python Project"
 authors = [
-    {name = "Fionn Tolster"}
+    {name = "Fionn Tolster (@FionnT)"}
 ]
 license = "MIT"
+license-files = ["LICENSE", "THIRD_PARTY_NOTICES.md"]
 readme = "README.md"
 requires-python = ">3.10"
 dependencies = [
