@@ -201,9 +201,9 @@ def test_parse_settings_supports_updated_tool_arguments_and_nuitka_metadata(tmp_
         "[uv]\nversion='0.12.3'\ninstall_args=['--offline']\nbuild_args=['--native-tls']\n"
         "[uvx]\nbuild_args=['--isolated']\n"
         "[python]\nversion='3.14.5'\ninstall_args=['--no-registry']\n"
-        "[nuitka]\nbuild_args=['--clang']\ncompany-name='Neo4j'\nproduct-name='Neoterm'\n"
-        "file-description='Support terminal'\nicon='./docs/icon.png'\n"
-        f"[{system}]\nlocation='neoterm'\nalias='neoterm'\n",
+        "[nuitka]\nbuild_args=['--clang']\ncompany-name='SomeCompany'\nproduct-name='SomeCLI'\n"
+        "file-description='SomeCLIProgram'\nicon='./docs/icon.png'\n"
+        f"[{system}]\nlocation='SomeCLI'\nalias='SomeCLI'\n",
         encoding="utf-8",
     )
 
@@ -214,9 +214,9 @@ def test_parse_settings_supports_updated_tool_arguments_and_nuitka_metadata(tmp_
     assert settings.uvx.build_args == ["--isolated"]
     assert settings.python.install_args == ["--no-registry"]
     assert settings.nuitka.build_args == ["--clang"]
-    assert settings.nuitka.company_name == "Neo4j"
-    assert settings.nuitka.product_name == "Neoterm"
-    assert settings.nuitka.file_description == "Support terminal"
+    assert settings.nuitka.company_name == "SomeCompany"
+    assert settings.nuitka.product_name == "SomeCLI"
+    assert settings.nuitka.file_description == "SomeCLIProgram"
     assert settings.nuitka.icon == "./docs/icon.png"
 
 

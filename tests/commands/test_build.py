@@ -4,16 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ivaldi.shared.build import (
-    build_all_wheels,
-    build_executable,
-    build_project_wheel,
-    get_configured_extras,
-    get_executable_name,
-    get_nuitka_metadata_args,
-    get_or_build_uv,
-    prepare_build,
-)
+from ivaldi.shared.build import build_all_wheels, build_executable, build_project_wheel, get_configured_extras, get_executable_name, get_nuitka_metadata_args, get_or_build_uv, prepare_build
 from ivaldi.types.enums import IVALDI
 from ivaldi.types.settings import Nuitka
 
@@ -287,9 +278,9 @@ def test_nuitka_metadata_resolves_project_icon(tmp_path, monkeypatch, system, op
     settings = SimpleNamespace(
         dirs=SimpleNamespace(project=project),
         nuitka=Nuitka(
-            company_name="Neo4j",
-            product_name="Neoterm",
-            file_description="Support terminal",
+            company_name="Something",
+            product_name="SomethingElse",
+            file_description="Some CLI",
             icon="./docs/icon.png",
         ),
     )
@@ -297,9 +288,9 @@ def test_nuitka_metadata_resolves_project_icon(tmp_path, monkeypatch, system, op
 
     arguments = get_nuitka_metadata_args(settings)
 
-    assert "--company-name=Neo4j" in arguments
-    assert "--product-name=Neoterm" in arguments
-    assert "--file-description=Support terminal" in arguments
+    assert "--company-name=Something" in arguments
+    assert "--product-name=SomethingElse" in arguments
+    assert "--file-description=Some CLI" in arguments
     assert f"--{option}={icon.resolve()}" in arguments
 
 

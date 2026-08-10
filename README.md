@@ -2,6 +2,9 @@
 
 Ivaldi turns a Python project into a platform-specific, one-file launcher. The launcher embeds the project's wheel and configuration, installs a UV-managed Python environment on its first run, and forwards every later invocation to the installed application.
 
+[![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/fionnt/ivaldi/issues) | [![Code Quality & Tests](https://github.com/fionnt/ivaldi/actions/workflows/code_quality.yml/badge.svg)](https://github.com/fionnt/ivaldi/actions/workflows/code_quality.yml) | [![Coverage badge](https://github.com/fionnt/ivaldi/raw/python-coverage-comment-action-data/badge.svg)](https://github.com/fionnt/ivaldi/tree/python-coverage-comment-action-data)
+
+
 ## Configuration
 
 Add `ivaldi.toml` to the project being wrapped:

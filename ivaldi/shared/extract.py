@@ -24,5 +24,5 @@ def extract(location, destination):
         if f.is_dir() and f.name in location.name:
             for subf in f.iterdir():
                 if subf.is_file():
-                    subf.move(destination / subf.name)
+                    shutil.move(subf, destination / subf.name)
             shutil.rmtree(f)
