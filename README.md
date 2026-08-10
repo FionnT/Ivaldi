@@ -4,9 +4,6 @@ Ivaldi turns a Python project into a platform-specific, one-file launcher. The l
 
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/FionnT/ivaldi/issues) | [![Code Quality and Tests](https://github.com/FionnT/Ivaldi/actions/workflows/code_quality.yaml/badge.svg)](https://github.com/FionnT/Ivaldi/actions/workflows/code_quality.yaml) [![Coverage badge](https://github.com/FionnT/ivaldi/raw/python-coverage-comment-action-data/badge.svg)](https://github.com/FionnT/ivaldi/tree/python-coverage-comment-action-data)
 
-## Dependencies
-
-1. Nuitka 
 
 ## Configuration
 
