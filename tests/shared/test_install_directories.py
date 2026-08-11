@@ -4,16 +4,16 @@ from ivaldi.shared.settings import is_installed, load_install_directories
 from ivaldi.types.enums import IVALDI
 
 
-def test_install_directories_copy_the_bundled_payload(tmp_path, monkeypatch):
-    bundled = tmp_path / "bundle/dist"
+def test_install_directories_copy_the_bundled_payload(temp_path, monkeypatch):
+    bundled = temp_path / "bundle/dist"
     bundled.mkdir(parents=True)
     (bundled / "ivaldi.toml").write_text("[app]\n", encoding="utf-8")
     (bundled / "project.whl").touch()
     settings = SimpleNamespace(dirs=SimpleNamespace(dist=bundled), bin=SimpleNamespace())
 
     def set_test_home(value):
-        value.dirs.app = tmp_path / "app-data"
-        value.dirs.exec = tmp_path / "bin"
+        value.dirs.app = temp_path / "app-data"
+        value.dirs.exec = temp_path / "bin"
         value.dirs.bin = value.dirs.app / "bin"
         value.dirs.uv = value.dirs.app / "cache"
         value.dirs.venv = value.dirs.app / "venv"
@@ -23,14 +23,14 @@ def test_install_directories_copy_the_bundled_payload(tmp_path, monkeypatch):
 
     result = load_install_directories(settings)
 
-    assert result.dirs.dist == tmp_path / "app-data/dist"
+    assert result.dirs.dist == temp_path / "app-data/dist"
     assert (result.dirs.dist / "ivaldi.toml").is_file()
     assert (result.dirs.dist / "project.whl").is_file()
 
 
-def test_install_state_requires_matching_completed_wheel(tmp_path, monkeypatch):
-    dist = tmp_path / "bundle/dist"
-    app = tmp_path / "app-data"
+def test_install_state_requires_matching_completed_wheel(temp_path, monkeypatch):
+    dist = temp_path / "bundle/dist"
+    app = temp_path / "app-data"
     bin_dir = app / "bin"
     python = app / "venv/bin/python"
     dist.mkdir(parents=True)

@@ -8,7 +8,7 @@ from ivaldi.commands.install import install
 
 
 @pytest.mark.parametrize("include_wheels", [False, True])
-def test_build_command_runs_the_build_pipeline(monkeypatch, tmp_path, include_wheels):
+def test_build_command_runs_the_build_pipeline(monkeypatch, temp_path, include_wheels):
     settings = SimpleNamespace(app=SimpleNamespace(build=SimpleNamespace(include_wheels=include_wheels)))
     calls = []
     monkeypatch.setattr("ivaldi.commands.build.load_settings", lambda location, build: calls.append("load") or settings)
@@ -19,7 +19,7 @@ def test_build_command_runs_the_build_pipeline(monkeypatch, tmp_path, include_wh
     monkeypatch.setattr("ivaldi.commands.build.build_all_wheels", lambda value, wheel: calls.append("dependencies"))
     monkeypatch.setattr("ivaldi.commands.build.build_executable", lambda location, value: calls.append("executable") or Path("app"))
 
-    assert build(tmp_path) == Path("app")
+    assert build(temp_path) == Path("app")
     expected = ["load", "directories", "prepare", "collect", "wheel"]
     if include_wheels:
         expected.append("dependencies")
@@ -30,8 +30,8 @@ def test_build_command_runs_the_build_pipeline(monkeypatch, tmp_path, include_wh
     ("add_to_path", "alias", "marked"),
     [(False, None, True), (True, Path("alias"), True), (True, None, False)],
 )
-def test_install_command_runs_pipeline_and_marks_complete(monkeypatch, tmp_path, add_to_path, alias, marked):
-    settings = SimpleNamespace(platform=SimpleNamespace(add_to_path=add_to_path), dirs=SimpleNamespace(app=tmp_path / "app"))
+def test_install_command_runs_pipeline_and_marks_complete(monkeypatch, temp_path, add_to_path, alias, marked):
+    settings = SimpleNamespace(platform=SimpleNamespace(add_to_path=add_to_path), dirs=SimpleNamespace(app=temp_path / "app"))
     calls = []
     monkeypatch.setattr("ivaldi.commands.install.load_settings", lambda **kwargs: calls.append("load") or settings)
     monkeypatch.setattr("ivaldi.commands.install.load_install_directories", lambda value: calls.append("directories") or value)
@@ -42,14 +42,14 @@ def test_install_command_runs_pipeline_and_marks_complete(monkeypatch, tmp_path,
     monkeypatch.setattr("ivaldi.commands.install.mark_installed", lambda value: calls.append("mark"))
     monkeypatch.setattr("ivaldi.commands.install.restore_sudo_ownership", lambda path: calls.append(("ownership", path)))
 
-    assert install(tmp_path, executable=tmp_path / "launcher") is settings
+    assert install(temp_path, executable=temp_path / "launcher") is settings
     assert ("mark" in calls) is marked
     assert calls[:6] == ["load", "directories", "uv", "python", "project", "alias"]
     assert calls[-1] == ("ownership", settings.dirs.app)
 
 
-def test_install_restores_ownership_after_a_partial_failure(monkeypatch, tmp_path):
-    settings = SimpleNamespace(platform=SimpleNamespace(add_to_path=False), dirs=SimpleNamespace(app=tmp_path / "app"))
+def test_install_restores_ownership_after_a_partial_failure(monkeypatch, temp_path):
+    settings = SimpleNamespace(platform=SimpleNamespace(add_to_path=False), dirs=SimpleNamespace(app=temp_path / "app"))
     calls = []
     monkeypatch.setattr("ivaldi.commands.install.load_settings", lambda **kwargs: settings)
     monkeypatch.setattr("ivaldi.commands.install.load_install_directories", lambda value: value)
@@ -58,6 +58,6 @@ def test_install_restores_ownership_after_a_partial_failure(monkeypatch, tmp_pat
     monkeypatch.setattr("ivaldi.commands.install.restore_sudo_ownership", lambda path: calls.append(path))
 
     with pytest.raises(RuntimeError, match="failed"):
-        install(tmp_path)
+        install(temp_path)
 
     assert calls == [settings.dirs.app]

@@ -21,13 +21,13 @@ def make_settings(location="app"):
 
 
 @pytest.mark.parametrize("system", ["Darwin", "Linux", "Windows"])
-def test_set_platform_home_for_supported_systems(tmp_path, monkeypatch, system):
+def test_set_platform_home_for_supported_systems(temp_path, monkeypatch, system):
     settings = make_settings()
     monkeypatch.setattr("ivaldi.shared.settings.system", system)
-    monkeypatch.setattr("ivaldi.shared.settings.Path.home", lambda: tmp_path)
-    monkeypatch.setenv("APPDATA", str(tmp_path / "AppData/Roaming"))
-    monkeypatch.setenv("LOCALAPPDATA", str(tmp_path / "AppData/Local"))
-    monkeypatch.setenv("XDG_DATA_HOME", str(tmp_path / "xdg"))
+    monkeypatch.setattr("ivaldi.shared.settings.Path.home", lambda: temp_path)
+    monkeypatch.setenv("APPDATA", str(temp_path / "AppData/Roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(temp_path / "AppData/Local"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(temp_path / "xdg"))
 
     result = set_platform_home(settings)
 
@@ -46,8 +46,8 @@ def test_set_platform_home_rejects_unsupported_system(monkeypatch):
         set_platform_home(make_settings())
 
 
-def test_find_build_file_in_start_parent_and_cwd(tmp_path, monkeypatch):
-    root = tmp_path / "root"
+def test_find_build_file_in_start_parent_and_cwd(temp_path, monkeypatch):
+    root = temp_path / "root"
     nested = root / "one/two"
     nested.mkdir(parents=True)
     config = root / "ivaldi.toml"
@@ -60,13 +60,13 @@ def test_find_build_file_in_start_parent_and_cwd(tmp_path, monkeypatch):
     assert find_build_file() == local_config
 
 
-def test_find_build_file_raises_when_absent(tmp_path):
+def test_find_build_file_raises_when_absent(temp_path):
     with pytest.raises(FileNotFoundError, match="Could not find"):
-        find_build_file(tmp_path)
+        find_build_file(temp_path)
 
 
-def test_find_build_file_extracts_tool_ivaldi_from_pyproject(tmp_path, caplog):
-    project = tmp_path / "project"
+def test_find_build_file_extracts_tool_ivaldi_from_pyproject(temp_path, caplog):
+    project = temp_path / "project"
     nested = project / "src/package"
     nested.mkdir(parents=True)
     pyproject = project / "pyproject.toml"
@@ -101,25 +101,25 @@ def test_find_build_file_extracts_tool_ivaldi_from_pyproject(tmp_path, caplog):
     assert "Generated" in caplog.text
 
 
-def test_find_build_file_prefers_existing_standalone_config(tmp_path):
-    standalone = tmp_path / "ivaldi.toml"
+def test_find_build_file_prefers_existing_standalone_config(temp_path):
+    standalone = temp_path / "ivaldi.toml"
     standalone.write_text("[app]\nentrypoint='standalone:main'\n", encoding="utf-8")
-    (tmp_path / "pyproject.toml").write_text(
+    (temp_path / "pyproject.toml").write_text(
         "[tool.ivaldi.app]\nentrypoint='embedded:main'\n",
         encoding="utf-8",
     )
 
-    assert find_build_file(tmp_path) == standalone
+    assert find_build_file(temp_path) == standalone
     assert "standalone:main" in standalone.read_text(encoding="utf-8")
 
 
-def test_find_build_file_refreshes_generated_config(tmp_path):
-    pyproject = tmp_path / "pyproject.toml"
+def test_find_build_file_refreshes_generated_config(temp_path):
+    pyproject = temp_path / "pyproject.toml"
     pyproject.write_text(
         "[tool.ivaldi.app]\nentrypoint='first:main'\n",
         encoding="utf-8",
     )
-    generated = find_build_file(tmp_path)
+    generated = find_build_file(temp_path)
     assert "first:main" in generated.read_text(encoding="utf-8")
 
     pyproject.write_text(
@@ -127,16 +127,16 @@ def test_find_build_file_refreshes_generated_config(tmp_path):
         encoding="utf-8",
     )
 
-    assert find_build_file(tmp_path) == generated
+    assert find_build_file(temp_path) == generated
     content = generated.read_text(encoding="utf-8")
     assert "second:main" in content
     assert "first:main" not in content
     assert content.startswith("#:schema https://")
 
 
-def test_extract_pyproject_config_ignores_missing_file_and_unconfigured_pyproject(tmp_path):
-    assert extract_pyproject_config(tmp_path / "missing.toml") is None
-    pyproject = tmp_path / "pyproject.toml"
+def test_extract_pyproject_config_ignores_missing_file_and_unconfigured_pyproject(temp_path):
+    assert extract_pyproject_config(temp_path / "missing.toml") is None
+    pyproject = temp_path / "pyproject.toml"
     pyproject.write_text("[project]\nname='app'\n", encoding="utf-8")
     assert extract_pyproject_config(pyproject) is None
 
@@ -178,24 +178,24 @@ def test_handle_required_settings_accepts_aliasless_no_path_configuration():
     handle_required_settings(settings)
 
 
-def test_parse_settings_builds_typed_settings(tmp_path, monkeypatch):
+def test_parse_settings_builds_typed_settings(temp_path, monkeypatch):
     system = platform.system().lower()
-    config = tmp_path / "ivaldi.toml"
+    config = temp_path / "ivaldi.toml"
     config.write_text(
         f"[app]\nentrypoint='package:main'\n[python]\nversion='3.14'\n[{system}]\nlocation='example.app'\nalias='app'\n",
         encoding="utf-8",
     )
 
-    settings = parse_settings(config, tmp_path, tmp_path / "dist", tmp_path / "stage", tmp_path / "output")
+    settings = parse_settings(config, temp_path, temp_path / "dist", temp_path / "stage", temp_path / "output")
 
     assert settings.app.entrypoint == "package:main"
     assert settings.platform.location == "example.app"
-    assert settings.dirs.project == tmp_path
+    assert settings.dirs.project == temp_path
 
 
-def test_parse_settings_supports_updated_tool_arguments_and_nuitka_metadata(tmp_path):
+def test_parse_settings_supports_updated_tool_arguments_and_nuitka_metadata(temp_path):
     system = platform.system().lower()
-    config = tmp_path / "ivaldi.toml"
+    config = temp_path / "ivaldi.toml"
     config.write_text(
         "[app]\nentrypoint='package:main'\n"
         "[uv]\nversion='0.12.3'\ninstall_args=['--offline']\nbuild_args=['--native-tls']\n"
@@ -207,7 +207,7 @@ def test_parse_settings_supports_updated_tool_arguments_and_nuitka_metadata(tmp_
         encoding="utf-8",
     )
 
-    settings = parse_settings(config, tmp_path, tmp_path / "dist", tmp_path / "stage", tmp_path / "output")
+    settings = parse_settings(config, temp_path, temp_path / "dist", temp_path / "stage", temp_path / "output")
 
     assert settings.uv.install_args == ["--offline"]
     assert settings.uv.build_args == ["--native-tls"]
@@ -220,16 +220,16 @@ def test_parse_settings_supports_updated_tool_arguments_and_nuitka_metadata(tmp_
     assert settings.nuitka.icon == "./docs/icon.png"
 
 
-def test_parse_settings_translates_invalid_fields_to_key_error(tmp_path):
-    config = tmp_path / "ivaldi.toml"
+def test_parse_settings_translates_invalid_fields_to_key_error(temp_path):
+    config = temp_path / "ivaldi.toml"
     config.write_text("[app]\nunknown=true\n", encoding="utf-8")
     with pytest.raises(KeyError, match="unexpected keyword argument"):
-        parse_settings(config, tmp_path, tmp_path, tmp_path, tmp_path)
+        parse_settings(config, temp_path, temp_path, temp_path, temp_path)
 
 
-def test_load_settings_configures_build_directories(tmp_path, monkeypatch):
-    package = tmp_path / "ivaldi"
-    project = tmp_path / "project"
+def test_load_settings_configures_build_directories(temp_path, monkeypatch):
+    package = temp_path / "ivaldi"
+    project = temp_path / "project"
     package.mkdir()
     project.mkdir()
     config = project / "ivaldi.toml"
@@ -249,28 +249,28 @@ def test_load_settings_configures_build_directories(tmp_path, monkeypatch):
     assert captured["dist"].is_dir() and captured["stage"].is_dir()
 
 
-def test_load_settings_configures_runtime_payload(tmp_path, monkeypatch):
+def test_load_settings_configures_runtime_payload(temp_path, monkeypatch):
     captured = {}
     monkeypatch.setattr(
         "ivaldi.shared.settings.parse_settings",
         lambda **kwargs: captured.update(kwargs) or "settings",
     )
 
-    assert load_settings(tmp_path) == "settings"
+    assert load_settings(temp_path) == "settings"
     assert captured == {
-        "config_file": tmp_path / "dist/ivaldi.toml",
-        "project_folder": tmp_path,
-        "dist": tmp_path / "dist",
+        "config_file": temp_path / "dist/ivaldi.toml",
+        "project_folder": temp_path,
+        "dist": temp_path / "dist",
         "stage": None,
         "output": None,
     }
 
 
-def test_load_install_directories_handles_existing_temporary_and_destination(tmp_path, monkeypatch):
-    bundled = tmp_path / "bundle"
+def test_load_install_directories_handles_existing_temporary_and_destination(temp_path, monkeypatch):
+    bundled = temp_path / "bundle"
     bundled.mkdir()
     (bundled / "new").touch()
-    app = tmp_path / "app"
+    app = temp_path / "app"
     (app / ".dist.tmp").mkdir(parents=True)
     (app / "dist").mkdir()
     (app / "dist/old").touch()
@@ -279,7 +279,7 @@ def test_load_install_directories_handles_existing_temporary_and_destination(tmp
 
     def set_home(value):
         value.dirs.app = app
-        value.dirs.exec = tmp_path / "exec"
+        value.dirs.exec = temp_path / "exec"
         value.dirs.bin = app / "bin"
         value.dirs.uv = app / "cache"
         return value
@@ -292,13 +292,13 @@ def test_load_install_directories_handles_existing_temporary_and_destination(tmp
     assert not (result.dirs.dist / "old").exists()
 
 
-def test_load_install_directories_rejects_missing_payload(tmp_path, monkeypatch):
+def test_load_install_directories_rejects_missing_payload(temp_path, monkeypatch):
     settings = make_settings()
-    settings.dirs.dist = tmp_path / "missing"
+    settings.dirs.dist = temp_path / "missing"
 
     def set_home(value):
-        value.dirs.app = tmp_path / "app"
-        value.dirs.exec = tmp_path / "exec"
+        value.dirs.app = temp_path / "app"
+        value.dirs.exec = temp_path / "exec"
         value.dirs.bin = value.dirs.app / "bin"
         value.dirs.uv = value.dirs.app / "cache"
         return value
@@ -308,8 +308,8 @@ def test_load_install_directories_rejects_missing_payload(tmp_path, monkeypatch)
         load_install_directories(settings)
 
 
-def test_load_install_directories_accepts_payload_already_in_place(tmp_path, monkeypatch):
-    app = tmp_path / "app"
+def test_load_install_directories_accepts_payload_already_in_place(temp_path, monkeypatch):
+    app = temp_path / "app"
     dist = app / "dist"
     dist.mkdir(parents=True)
     settings = make_settings()
@@ -317,7 +317,7 @@ def test_load_install_directories_accepts_payload_already_in_place(tmp_path, mon
 
     def set_home(value):
         value.dirs.app = app
-        value.dirs.exec = tmp_path / "exec"
+        value.dirs.exec = temp_path / "exec"
         value.dirs.bin = app / "bin"
         value.dirs.uv = app / "cache"
         return value
@@ -326,11 +326,11 @@ def test_load_install_directories_accepts_payload_already_in_place(tmp_path, mon
     assert load_install_directories(settings).dirs.dist == dist
 
 
-def test_runtime_directories_and_missing_install_marker(tmp_path, monkeypatch):
+def test_runtime_directories_and_missing_install_marker(temp_path, monkeypatch):
     settings = make_settings()
 
     def set_home(value):
-        value.dirs.app = tmp_path
+        value.dirs.app = temp_path
         return value
 
     monkeypatch.setattr("ivaldi.shared.settings.set_platform_home", set_home)
@@ -338,10 +338,10 @@ def test_runtime_directories_and_missing_install_marker(tmp_path, monkeypatch):
     assert is_installed(settings) is False
 
 
-def test_install_marker_is_detected(tmp_path, monkeypatch):
+def test_install_marker_is_detected(temp_path, monkeypatch):
     settings = make_settings()
-    (tmp_path / IVALDI.INSTALL_MARKER).touch()
-    monkeypatch.setattr("ivaldi.shared.settings.load_runtime_directories", lambda value: set_app(value, tmp_path))
+    (temp_path / IVALDI.INSTALL_MARKER).touch()
+    monkeypatch.setattr("ivaldi.shared.settings.load_runtime_directories", lambda value: set_app(value, temp_path))
     assert is_installed(settings) is True
 
 

@@ -10,10 +10,10 @@ from ivaldi.types.enums import IVALDI
 from ivaldi.types.settings import App, Nuitka
 
 
-def test_prepare_build_recreates_stage_and_payload(tmp_path):
-    project = tmp_path / "project"
-    stage = tmp_path / "stage"
-    dist = tmp_path / "dist"
+def test_prepare_build_recreates_stage_and_payload(temp_path):
+    project = temp_path / "project"
+    stage = temp_path / "stage"
+    dist = temp_path / "dist"
     for directory in (project, stage, dist):
         directory.mkdir()
     (stage / "stale").touch()
@@ -27,9 +27,9 @@ def test_prepare_build_recreates_stage_and_payload(tmp_path):
     assert (dist / "ivaldi.toml").read_text(encoding="utf-8") == "[app]\n"
 
 
-def test_build_project_wheel_uses_isolated_backend_and_writes_manifest(tmp_path, monkeypatch):
-    stage = tmp_path / "stage"
-    dist = tmp_path / "dist"
+def test_build_project_wheel_uses_isolated_backend_and_writes_manifest(temp_path, monkeypatch):
+    stage = temp_path / "stage"
+    dist = temp_path / "dist"
     stage.mkdir()
     dist.mkdir()
     installs = []
@@ -68,8 +68,8 @@ def test_build_project_wheel_uses_isolated_backend_and_writes_manifest(tmp_path,
     assert (dist / IVALDI.WHEEL_MANIFEST).read_text(encoding="utf-8") == "app.whl"
 
 
-def test_get_configured_extras_reads_optional_dependencies(tmp_path):
-    stage = tmp_path / "stage"
+def test_get_configured_extras_reads_optional_dependencies(temp_path):
+    stage = temp_path / "stage"
     stage.mkdir()
     (stage / "pyproject.toml").write_text(
         "[project.optional-dependencies]\nserver=[]\nreports=[]\n",
@@ -80,30 +80,30 @@ def test_get_configured_extras_reads_optional_dependencies(tmp_path):
     assert get_configured_extras(settings) == ["reports", "server"]
 
 
-def test_get_or_build_uv_prefers_path_and_cached_tool(tmp_path, monkeypatch):
-    path_uv = tmp_path / "path-uv"
+def test_get_or_build_uv_prefers_path_and_cached_tool(temp_path, monkeypatch):
+    path_uv = temp_path / "path-uv"
     monkeypatch.setattr("ivaldi.shared.build.shutil.which", lambda executable: str(path_uv))
-    settings = SimpleNamespace(uv=SimpleNamespace(version="1"), dirs=SimpleNamespace(dist=tmp_path / "payload/dist"))
+    settings = SimpleNamespace(uv=SimpleNamespace(version="1"), dirs=SimpleNamespace(dist=temp_path / "payload/dist"))
     assert get_or_build_uv(settings) == path_uv
 
     monkeypatch.setattr("ivaldi.shared.build.shutil.which", lambda executable: None)
-    cached = tmp_path / "payload/.tools/1/bin/uv"
+    cached = temp_path / "payload/.tools/1/bin/uv"
     cached.parent.mkdir(parents=True)
     cached.touch()
     assert get_or_build_uv(settings) == cached
 
 
-def test_build_all_wheels_uses_manifest_extras_and_extra_arguments(tmp_path, monkeypatch):
-    dist = tmp_path / "dist"
-    stage = tmp_path / "stage"
-    project = tmp_path / "project"
+def test_build_all_wheels_uses_manifest_extras_and_extra_arguments(temp_path, monkeypatch):
+    dist = temp_path / "dist"
+    stage = temp_path / "stage"
+    project = temp_path / "project"
     for directory in (dist, stage, project):
         directory.mkdir()
     wheel = dist / "app.whl"
     wheel.touch()
     (dist / IVALDI.WHEEL_MANIFEST).write_text(wheel.name, encoding="utf-8")
     (stage / "pyproject.toml").write_text("[project.optional-dependencies]\nb=[]\na=[]\n", encoding="utf-8")
-    uv = tmp_path / "uv"
+    uv = temp_path / "uv"
     uv.touch()
     settings = SimpleNamespace(
         app=SimpleNamespace(build=SimpleNamespace(all_extras=True)),
@@ -122,32 +122,32 @@ def test_build_all_wheels_uses_manifest_extras_and_extra_arguments(tmp_path, mon
     assert f"{wheel.resolve()}[a,b]" in captured["command"]
 
 
-def test_build_all_wheels_requires_manifest(tmp_path, monkeypatch):
-    dist = tmp_path / "dist"
+def test_build_all_wheels_requires_manifest(temp_path, monkeypatch):
+    dist = temp_path / "dist"
     dist.mkdir()
     settings = SimpleNamespace(dirs=SimpleNamespace(dist=dist))
-    monkeypatch.setattr("ivaldi.shared.build.get_or_build_uv", lambda value: tmp_path / "uv")
+    monkeypatch.setattr("ivaldi.shared.build.get_or_build_uv", lambda value: temp_path / "uv")
 
     with pytest.raises(FileNotFoundError, match="must be built"):
         build_all_wheels(settings)
 
 
-def test_executable_name_falls_back_and_adds_windows_suffix(tmp_path, monkeypatch):
+def test_executable_name_falls_back_and_adds_windows_suffix(temp_path, monkeypatch):
     settings = SimpleNamespace(
         platform=SimpleNamespace(alias=None, name=None),
-        dirs=SimpleNamespace(project=tmp_path / "project"),
+        dirs=SimpleNamespace(project=temp_path / "project"),
     )
     monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
     assert get_executable_name(settings) == "project.exe"
 
 
-def test_project_version_prefers_standard_and_poetry_metadata(tmp_path):
-    project = tmp_path / "project"
+def test_project_version_prefers_standard_and_poetry_metadata(temp_path):
+    project = temp_path / "project"
     project.mkdir()
     pyproject = project / "pyproject.toml"
     settings = SimpleNamespace(
         app=SimpleNamespace(version="9.9.9"),
-        dirs=SimpleNamespace(project=project, dist=tmp_path / "dist"),
+        dirs=SimpleNamespace(project=project, dist=temp_path / "dist"),
     )
 
     pyproject.write_text('[project]\nversion = "1.2.3"\n[tool.poetry]\nversion = "2.0.0"\n', encoding="utf-8")
@@ -157,9 +157,9 @@ def test_project_version_prefers_standard_and_poetry_metadata(tmp_path):
     assert get_project_version(settings) == "2.0.0"
 
 
-def test_project_version_uses_built_wheel_for_dynamic_metadata(tmp_path):
-    project = tmp_path / "project"
-    dist = tmp_path / "dist"
+def test_project_version_uses_built_wheel_for_dynamic_metadata(temp_path):
+    project = temp_path / "project"
+    dist = temp_path / "dist"
     project.mkdir()
     dist.mkdir()
     (project / "pyproject.toml").write_text('[project]\ndynamic = ["version"]\n', encoding="utf-8")
@@ -175,30 +175,30 @@ def test_project_version_uses_built_wheel_for_dynamic_metadata(tmp_path):
     assert get_project_version(settings) == "3.4.5"
 
 
-def test_project_version_falls_back_to_app_version(tmp_path):
+def test_project_version_falls_back_to_app_version(temp_path):
     settings = SimpleNamespace(
         app=SimpleNamespace(version="9.9.9"),
-        dirs=SimpleNamespace(project=tmp_path / "project", dist=tmp_path / "dist"),
+        dirs=SimpleNamespace(project=temp_path / "project", dist=temp_path / "dist"),
     )
 
     assert get_project_version(settings) == "9.9.9"
 
 
-def test_project_version_warns_when_using_implicit_fallback(tmp_path, caplog):
+def test_project_version_warns_when_using_implicit_fallback(temp_path, caplog):
     settings = SimpleNamespace(
         app=App(),
-        dirs=SimpleNamespace(project=tmp_path / "project", dist=tmp_path / "dist"),
+        dirs=SimpleNamespace(project=temp_path / "project", dist=temp_path / "dist"),
     )
 
     assert get_project_version(settings) == "0.0.1"
     assert "implicit fallback version 0.0.1" in caplog.text
 
 
-def test_build_executable_adds_windows_runtime_flag(tmp_path, monkeypatch):
-    package = tmp_path / "ivaldi"
+def test_build_executable_adds_windows_runtime_flag(temp_path, monkeypatch):
+    package = temp_path / "ivaldi"
     payload = package / "dist"
-    output = tmp_path / "output"
-    project = tmp_path / "project"
+    output = temp_path / "output"
+    project = temp_path / "project"
     payload.mkdir(parents=True)
     project.mkdir()
     (project / "pyproject.toml").write_text('[project]\nversion = "4.5.6"\n', encoding="utf-8")
@@ -219,10 +219,10 @@ def test_build_executable_adds_windows_runtime_flag(tmp_path, monkeypatch):
     assert "--product-version=4.5.6" in captured["command"]
 
 
-def test_build_executable_embeds_payload_and_uses_platform_alias(tmp_path, monkeypatch):
-    package = tmp_path / "ivaldi"
+def test_build_executable_embeds_payload_and_uses_platform_alias(temp_path, monkeypatch):
+    package = temp_path / "ivaldi"
     payload = package / "dist"
-    project = tmp_path / "project"
+    project = temp_path / "project"
     output = project / "dist"
     icon = project / "docs/icon.png"
     package.mkdir()
@@ -267,13 +267,13 @@ def test_build_executable_embeds_payload_and_uses_platform_alias(tmp_path, monke
     icon_option = {"Darwin": "macos-app-icon", "Windows": "windows-icon-from-ico", "Linux": "linux-icon"}[platform.system()]
     assert f"--{icon_option}={icon.resolve()}" in captured["command"]
     assert captured["command"][-1] == str(package.resolve())
-    assert captured["kwargs"]["cwd"] == tmp_path
+    assert captured["kwargs"]["cwd"] == temp_path
 
 
-def test_build_uv_downloads_configured_release_when_uv_is_not_on_path(tmp_path, monkeypatch):
+def test_build_uv_downloads_configured_release_when_uv_is_not_on_path(temp_path, monkeypatch):
     settings = SimpleNamespace(
         uv=SimpleNamespace(version="0.12.3"),
-        dirs=SimpleNamespace(dist=tmp_path / "ivaldi/dist"),
+        dirs=SimpleNamespace(dist=temp_path / "ivaldi/dist"),
     )
     settings.dirs.dist.mkdir(parents=True)
     calls = []
@@ -290,20 +290,20 @@ def test_build_uv_downloads_configured_release_when_uv_is_not_on_path(tmp_path, 
     executable = get_or_build_uv(settings)
 
     assert executable.is_file()
-    assert executable.parent == tmp_path / "ivaldi/.tools/0.12.3/bin"
+    assert executable.parent == temp_path / "ivaldi/.tools/0.12.3/bin"
     assert len(calls) == 1
 
 
-def test_build_all_wheels_uses_uv_tool_run(tmp_path, monkeypatch):
-    dist = tmp_path / "ivaldi/dist"
-    stage = tmp_path / "ivaldi/stage"
-    project = tmp_path / "project"
+def test_build_all_wheels_uses_uv_tool_run(temp_path, monkeypatch):
+    dist = temp_path / "ivaldi/dist"
+    stage = temp_path / "ivaldi/stage"
+    project = temp_path / "project"
     for directory in (dist, stage, project):
         directory.mkdir(parents=True)
     wheel = dist / "app-1.0-py3-none-any.whl"
     wheel.touch()
     (stage / "pyproject.toml").write_text("[project]\nname='app'\nversion='1.0'\n", encoding="utf-8")
-    uv = tmp_path / "uv"
+    uv = temp_path / "uv"
     uv.touch()
     settings = SimpleNamespace(
         app=SimpleNamespace(build=SimpleNamespace(all_extras=False)),
@@ -331,14 +331,14 @@ def test_build_all_wheels_uses_uv_tool_run(tmp_path, monkeypatch):
         ("Linux", "linux-icon"),
     ],
 )
-def test_nuitka_metadata_resolves_project_icon(tmp_path, monkeypatch, system, option):
-    project = tmp_path / "project"
+def test_nuitka_metadata_resolves_project_icon(temp_path, monkeypatch, system, option):
+    project = temp_path / "project"
     icon = project / "docs/icon.png"
     icon.parent.mkdir(parents=True)
     icon.touch()
     settings = SimpleNamespace(
         app=SimpleNamespace(version="1.2.3"),
-        dirs=SimpleNamespace(project=project, dist=tmp_path / "dist"),
+        dirs=SimpleNamespace(project=project, dist=temp_path / "dist"),
         nuitka=Nuitka(
             company_name="Something",
             product_name="SomethingElse",
@@ -356,10 +356,10 @@ def test_nuitka_metadata_resolves_project_icon(tmp_path, monkeypatch, system, op
     assert f"--{option}={icon.resolve()}" in arguments
 
 
-def test_nuitka_metadata_adds_required_windows_versions(tmp_path, monkeypatch):
+def test_nuitka_metadata_adds_required_windows_versions(temp_path, monkeypatch):
     settings = SimpleNamespace(
         app=SimpleNamespace(version="1.2.3"),
-        dirs=SimpleNamespace(project=tmp_path, dist=tmp_path / "dist"),
+        dirs=SimpleNamespace(project=temp_path, dist=temp_path / "dist"),
         nuitka=Nuitka(company_name="Something"),
     )
     monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
@@ -371,10 +371,10 @@ def test_nuitka_metadata_adds_required_windows_versions(tmp_path, monkeypatch):
 
 
 @pytest.mark.parametrize("version", ["", "1.2.3.4.5", "1.2.beta", "1.2.65536"])
-def test_nuitka_metadata_rejects_invalid_windows_version(tmp_path, monkeypatch, version):
+def test_nuitka_metadata_rejects_invalid_windows_version(temp_path, monkeypatch, version):
     settings = SimpleNamespace(
         app=SimpleNamespace(version=version),
-        dirs=SimpleNamespace(project=tmp_path, dist=tmp_path / "dist"),
+        dirs=SimpleNamespace(project=temp_path, dist=temp_path / "dist"),
         nuitka=Nuitka(company_name="Something"),
     )
     monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Windows")
@@ -383,19 +383,19 @@ def test_nuitka_metadata_rejects_invalid_windows_version(tmp_path, monkeypatch, 
         get_nuitka_metadata_args(settings)
 
 
-def test_nuitka_metadata_rejects_missing_icon(tmp_path):
+def test_nuitka_metadata_rejects_missing_icon(temp_path):
     settings = SimpleNamespace(
-        dirs=SimpleNamespace(project=tmp_path),
+        dirs=SimpleNamespace(project=temp_path),
         nuitka=Nuitka(icon="missing.png"),
     )
     with pytest.raises(FileNotFoundError, match="configured Nuitka icon"):
         get_nuitka_metadata_args(settings)
 
 
-def test_nuitka_metadata_rejects_icon_on_unsupported_platform(tmp_path, monkeypatch):
-    icon = tmp_path / "icon.png"
+def test_nuitka_metadata_rejects_icon_on_unsupported_platform(temp_path, monkeypatch):
+    icon = temp_path / "icon.png"
     icon.touch()
-    settings = SimpleNamespace(dirs=SimpleNamespace(project=tmp_path), nuitka=Nuitka(icon=str(icon)))
+    settings = SimpleNamespace(dirs=SimpleNamespace(project=temp_path), nuitka=Nuitka(icon=str(icon)))
     monkeypatch.setattr("ivaldi.shared.build.platform.system", lambda: "Plan9")
     with pytest.raises(RuntimeError, match="not supported"):
         get_nuitka_metadata_args(settings)

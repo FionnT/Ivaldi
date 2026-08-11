@@ -8,11 +8,11 @@ def test_entrypoint_command_uses_executable_entrypoint_without_colon():
     assert entrypoint_command("my-command", None, ["arg"]) == ["my-command", "arg"]
 
 
-def test_run_uses_installed_python_and_forwards_all_arguments(tmp_path, monkeypatch):
-    uv = tmp_path / "bin/uv"
-    python = tmp_path / "bin/cpython/bin/python"
-    cache = tmp_path / "cache"
-    app = tmp_path / "app"
+def test_run_uses_installed_python_and_forwards_all_arguments(temp_path, monkeypatch):
+    uv = temp_path / "bin/uv"
+    python = temp_path / "bin/cpython/bin/python"
+    cache = temp_path / "cache"
+    app = temp_path / "app"
     settings = SimpleNamespace(
         app=SimpleNamespace(entrypoint="someproject:main"),
         bin=SimpleNamespace(uv=uv, python=python),
@@ -30,7 +30,7 @@ def test_run_uses_installed_python_and_forwards_all_arguments(tmp_path, monkeypa
 
     monkeypatch.setattr("ivaldi.commands.run.subprocess.run", execute)
 
-    result = run(tmp_path, ["--verbose", "--output", "some file.txt"])
+    result = run(temp_path, ["--verbose", "--output", "some file.txt"])
 
     assert result == 23
     assert captured["kwargs"]["cwd"] == app

@@ -42,8 +42,8 @@ def test_windows_admin_detection_and_message(monkeypatch):
         run_elevated()
 
 
-def test_sudo_user_uses_original_account(monkeypatch, tmp_path):
-    account = SimpleNamespace(pw_dir=str(tmp_path / "home"))
+def test_sudo_user_uses_original_account(monkeypatch, temp_path):
+    account = SimpleNamespace(pw_dir=str(temp_path / "home"))
     pwd = SimpleNamespace(getpwuid=lambda uid: account)
     monkeypatch.setattr("ivaldi.shared.admin.os.name", "posix")
     monkeypatch.setattr("ivaldi.shared.admin.os.geteuid", lambda: 0)
@@ -53,8 +53,8 @@ def test_sudo_user_uses_original_account(monkeypatch, tmp_path):
 
     user = sudo_user()
     assert user is not None
-    assert (user.uid, user.gid, user.home) == (1001, 1002, tmp_path / "home")
-    assert user_home() == tmp_path / "home"
+    assert (user.uid, user.gid, user.home) == (1001, 1002, temp_path / "home")
+    assert user_home() == temp_path / "home"
 
 
 def test_sudo_user_requires_sudo_environment(monkeypatch):
@@ -92,8 +92,8 @@ def test_sudo_user_rejects_an_unknown_account(monkeypatch):
     assert sudo_user() is None
 
 
-def test_restore_sudo_ownership_repairs_the_complete_tree(monkeypatch, tmp_path):
-    app = tmp_path / "app"
+def test_restore_sudo_ownership_repairs_the_complete_tree(monkeypatch, temp_path):
+    app = temp_path / "app"
     nested = app / "venv"
     nested.mkdir(parents=True)
     executable = nested / "python"
@@ -114,11 +114,11 @@ def test_restore_sudo_ownership_repairs_the_complete_tree(monkeypatch, tmp_path)
     assert all(call[1:] == (1001, 1002, False) for call in calls)
 
 
-def test_restore_sudo_ownership_is_not_used_on_windows(monkeypatch, tmp_path):
+def test_restore_sudo_ownership_is_not_used_on_windows(monkeypatch, temp_path):
     monkeypatch.setattr("ivaldi.shared.admin.os.name", "nt")
     monkeypatch.setattr(
         "ivaldi.shared.admin.os.chown",
         lambda *_args, **_kwargs: pytest.fail("Windows must retain its native AppData ACLs"),
     )
 
-    restore_sudo_ownership(tmp_path)
+    restore_sudo_ownership(temp_path)

@@ -9,16 +9,16 @@ from ivaldi.types.enums import IVALDI
 from ivaldi.types.settings import UV, App
 
 
-def test_install_project_targets_managed_python(tmp_path, monkeypatch):
-    dist = tmp_path / "dist"
+def test_install_project_targets_managed_python(temp_path, monkeypatch):
+    dist = temp_path / "dist"
     dist.mkdir()
     (dist / "project.whl").touch()
-    python = tmp_path / "managed/bin/python"
+    python = temp_path / "managed/bin/python"
     settings = SimpleNamespace(
         app=App(),
         uv=UV(),
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=python),
-        dirs=SimpleNamespace(app=tmp_path, dist=dist, uv=tmp_path / "cache"),
+        dirs=SimpleNamespace(app=temp_path, dist=dist, uv=temp_path / "cache"),
     )
     captured = {}
 
@@ -34,8 +34,8 @@ def test_install_project_targets_managed_python(tmp_path, monkeypatch):
     assert captured["command"][python_argument] == str(python.resolve())
 
 
-def test_install_project_uses_manifest_when_dependencies_are_bundled(tmp_path, monkeypatch):
-    dist = tmp_path / "dist"
+def test_install_project_uses_manifest_when_dependencies_are_bundled(temp_path, monkeypatch):
+    dist = temp_path / "dist"
     dist.mkdir()
     app_wheel = dist / "my_app-1.0-py3-none-any.whl"
     app_wheel.touch()
@@ -44,8 +44,8 @@ def test_install_project_uses_manifest_when_dependencies_are_bundled(tmp_path, m
     settings = SimpleNamespace(
         app=App(build={"include_wheels": True}),
         uv=UV(),
-        bin=SimpleNamespace(uv=Path("/bin/uv"), python=tmp_path / "venv/bin/python"),
-        dirs=SimpleNamespace(app=tmp_path, dist=dist, uv=tmp_path / "cache"),
+        bin=SimpleNamespace(uv=Path("/bin/uv"), python=temp_path / "venv/bin/python"),
+        dirs=SimpleNamespace(app=temp_path, dist=dist, uv=temp_path / "cache"),
     )
     captured = {}
 
@@ -62,8 +62,8 @@ def test_install_project_uses_manifest_when_dependencies_are_bundled(tmp_path, m
     assert "dependency-2.0-py3-none-any.whl" not in captured["command"]
 
 
-def test_install_project_requests_every_wheel_extra(tmp_path, monkeypatch):
-    dist = tmp_path / "dist"
+def test_install_project_requests_every_wheel_extra(temp_path, monkeypatch):
+    dist = temp_path / "dist"
     dist.mkdir()
     app_wheel = dist / "my_app-1.0-py3-none-any.whl"
     with ZipFile(app_wheel, "w") as archive:
@@ -74,8 +74,8 @@ def test_install_project_requests_every_wheel_extra(tmp_path, monkeypatch):
     settings = SimpleNamespace(
         app=App(build={"all_extras": True}),
         uv=UV(),
-        bin=SimpleNamespace(uv=Path("/bin/uv"), python=tmp_path / "venv/bin/python"),
-        dirs=SimpleNamespace(app=tmp_path, dist=dist, uv=tmp_path / "cache"),
+        bin=SimpleNamespace(uv=Path("/bin/uv"), python=temp_path / "venv/bin/python"),
+        dirs=SimpleNamespace(app=temp_path, dist=dist, uv=temp_path / "cache"),
     )
     captured = {}
 
@@ -90,8 +90,8 @@ def test_install_project_requests_every_wheel_extra(tmp_path, monkeypatch):
     assert f"{app_wheel.resolve()}[reports,server]" in captured["command"]
 
 
-def test_wheel_requirement_rejects_ambiguous_metadata(tmp_path):
-    wheel = tmp_path / "app.whl"
+def test_wheel_requirement_rejects_ambiguous_metadata(temp_path):
+    wheel = temp_path / "app.whl"
     with ZipFile(wheel, "w") as archive:
         archive.writestr("one.dist-info/METADATA", "Name: one\n")
         archive.writestr("two.dist-info/METADATA", "Name: two\n")
@@ -99,8 +99,8 @@ def test_wheel_requirement_rejects_ambiguous_metadata(tmp_path):
         get_wheel_requirement(wheel, all_extras=True)
 
 
-def test_wheel_requirement_without_extras_is_plain_path(tmp_path):
-    wheel = tmp_path / "app.whl"
+def test_wheel_requirement_without_extras_is_plain_path(temp_path):
+    wheel = temp_path / "app.whl"
     with ZipFile(wheel, "w") as archive:
         archive.writestr("app.dist-info/METADATA", "Metadata-Version: 2.5\nName: app\nVersion: 1\n")
     assert get_wheel_requirement(wheel, all_extras=True) == str(wheel.resolve())
@@ -112,46 +112,46 @@ def test_handle_install_flags_includes_every_enabled_option():
 
 
 @pytest.mark.parametrize("manifest", ["", "../app.whl"])
-def test_handle_wheel_rejects_invalid_manifest(tmp_path, manifest):
-    (tmp_path / IVALDI.WHEEL_MANIFEST).write_text(manifest, encoding="utf-8")
-    settings = SimpleNamespace(dirs=SimpleNamespace(dist=tmp_path))
+def test_handle_wheel_rejects_invalid_manifest(temp_path, manifest):
+    (temp_path / IVALDI.WHEEL_MANIFEST).write_text(manifest, encoding="utf-8")
+    settings = SimpleNamespace(dirs=SimpleNamespace(dist=temp_path))
     with pytest.raises(RuntimeError, match="manifest is invalid"):
         handle_wheel(settings)
 
 
-def test_handle_wheel_rejects_missing_manifest_wheel(tmp_path):
-    (tmp_path / IVALDI.WHEEL_MANIFEST).write_text("missing.whl", encoding="utf-8")
-    settings = SimpleNamespace(dirs=SimpleNamespace(dist=tmp_path))
+def test_handle_wheel_rejects_missing_manifest_wheel(temp_path):
+    (temp_path / IVALDI.WHEEL_MANIFEST).write_text("missing.whl", encoding="utf-8")
+    settings = SimpleNamespace(dirs=SimpleNamespace(dist=temp_path))
     with pytest.raises(RuntimeError, match="wheel is missing"):
         handle_wheel(settings)
 
 
-def test_handle_wheel_requires_exactly_one_unmanifested_wheel(tmp_path):
-    settings = SimpleNamespace(dirs=SimpleNamespace(dist=tmp_path))
+def test_handle_wheel_requires_exactly_one_unmanifested_wheel(temp_path):
+    settings = SimpleNamespace(dirs=SimpleNamespace(dist=temp_path))
     with pytest.raises(RuntimeError, match="Could not find"):
         handle_wheel(settings)
-    (tmp_path / "one.whl").touch()
-    (tmp_path / "two.whl").touch()
+    (temp_path / "one.whl").touch()
+    (temp_path / "two.whl").touch()
     with pytest.raises(RuntimeError, match="Could not find"):
         handle_wheel(settings)
 
 
-def test_install_project_reports_nonzero_result(tmp_path, monkeypatch):
-    (tmp_path / "app.whl").touch()
+def test_install_project_reports_nonzero_result(temp_path, monkeypatch):
+    (temp_path / "app.whl").touch()
     settings = SimpleNamespace(
         app=App(),
         uv=UV(),
-        bin=SimpleNamespace(uv=Path("/bin/uv"), python=tmp_path / "python"),
-        dirs=SimpleNamespace(app=tmp_path, dist=tmp_path, uv=tmp_path / "cache"),
+        bin=SimpleNamespace(uv=Path("/bin/uv"), python=temp_path / "python"),
+        dirs=SimpleNamespace(app=temp_path, dist=temp_path, uv=temp_path / "cache"),
     )
     monkeypatch.setattr("ivaldi.shared.project.subprocess.run", lambda *args, **kwargs: SimpleNamespace(returncode=2))
     with pytest.raises(RuntimeError, match="Project install failed"):
         install_project(settings)
 
 
-def test_mark_installed_requires_manifest_and_records_wheel(tmp_path):
-    dist = tmp_path / "dist"
-    app = tmp_path / "app"
+def test_mark_installed_requires_manifest_and_records_wheel(temp_path):
+    dist = temp_path / "dist"
+    app = temp_path / "app"
     dist.mkdir()
     app.mkdir()
     settings = SimpleNamespace(dirs=SimpleNamespace(dist=dist, app=app))

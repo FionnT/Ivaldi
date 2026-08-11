@@ -6,9 +6,9 @@ import pytest
 from ivaldi.shared.python import find_python, install_python
 
 
-def test_install_python_records_managed_interpreter(tmp_path, monkeypatch):
-    managed_python = tmp_path / "bin/cpython/bin/python"
-    existing_venv = tmp_path / "app/venv"
+def test_install_python_records_managed_interpreter(temp_path, monkeypatch):
+    managed_python = temp_path / "bin/cpython/bin/python"
+    existing_venv = temp_path / "app/venv"
     existing_venv.mkdir(parents=True)
     stale_file = existing_venv / "stale"
     stale_file.touch()
@@ -16,7 +16,7 @@ def test_install_python_records_managed_interpreter(tmp_path, monkeypatch):
     monkeypatch.setenv("VIRTUAL_ENV", "/some/active/venv")
     settings = SimpleNamespace(
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=None),
-        dirs=SimpleNamespace(app=tmp_path / "app", bin=tmp_path / "bin", uv=tmp_path / "cache"),
+        dirs=SimpleNamespace(app=temp_path / "app", bin=temp_path / "bin", uv=temp_path / "cache"),
         python=SimpleNamespace(version="3.14.5", install_args=[]),
     )
     calls = []
@@ -47,26 +47,26 @@ def test_install_python_records_managed_interpreter(tmp_path, monkeypatch):
     ]
 
 
-def make_python_settings(tmp_path):
+def make_python_settings(temp_path):
     return SimpleNamespace(
-        bin=SimpleNamespace(uv=tmp_path / "bin/uv", python=None),
-        dirs=SimpleNamespace(app=tmp_path / "app", bin=tmp_path / "bin", uv=tmp_path / "cache"),
+        bin=SimpleNamespace(uv=temp_path / "bin/uv", python=None),
+        dirs=SimpleNamespace(app=temp_path / "app", bin=temp_path / "bin", uv=temp_path / "cache"),
         python=SimpleNamespace(version="3.14", install_args=["--default"]),
     )
 
 
-def test_find_python_rejects_interpreter_outside_install_directory(tmp_path, monkeypatch):
-    settings = make_python_settings(tmp_path)
+def test_find_python_rejects_interpreter_outside_install_directory(temp_path, monkeypatch):
+    settings = make_python_settings(temp_path)
     monkeypatch.setattr(
         "ivaldi.shared.python.subprocess.run",
-        lambda *args, **kwargs: SimpleNamespace(stdout=str(tmp_path / "outside/python")),
+        lambda *args, **kwargs: SimpleNamespace(stdout=str(temp_path / "outside/python")),
     )
     with pytest.raises(RuntimeError, match="outside its managed"):
         find_python(settings)
 
 
-def test_install_python_reports_install_failure(tmp_path, monkeypatch):
-    settings = make_python_settings(tmp_path)
+def test_install_python_reports_install_failure(temp_path, monkeypatch):
+    settings = make_python_settings(temp_path)
     monkeypatch.setattr(
         "ivaldi.shared.python.subprocess.run",
         lambda *args, **kwargs: SimpleNamespace(returncode=3),
@@ -75,8 +75,8 @@ def test_install_python_reports_install_failure(tmp_path, monkeypatch):
         install_python(settings)
 
 
-def test_install_python_sets_windows_interpreter_path(tmp_path, monkeypatch):
-    settings = make_python_settings(tmp_path)
+def test_install_python_sets_windows_interpreter_path(temp_path, monkeypatch):
+    settings = make_python_settings(temp_path)
     managed = settings.dirs.bin / "managed/python.exe"
     monkeypatch.setattr("ivaldi.shared.python.os.name", "nt")
     monkeypatch.setattr("ivaldi.shared.python.find_python", lambda value: managed)
@@ -90,8 +90,8 @@ def test_install_python_sets_windows_interpreter_path(tmp_path, monkeypatch):
     assert settings.bin.python == settings.dirs.app / "venv/Scripts/python.exe"
 
 
-def test_install_python_reports_venv_failure(tmp_path, monkeypatch):
-    settings = make_python_settings(tmp_path)
+def test_install_python_reports_venv_failure(temp_path, monkeypatch):
+    settings = make_python_settings(temp_path)
     managed = settings.dirs.bin / "managed/python"
     results = iter([SimpleNamespace(returncode=0), SimpleNamespace(returncode=4)])
     monkeypatch.setattr("ivaldi.shared.python.find_python", lambda value: managed)

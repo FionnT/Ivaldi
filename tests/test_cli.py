@@ -69,7 +69,7 @@ def test_main_dispatches_run_and_forwards_only_application_arguments(monkeypatch
     assert captured["args"] == ["--verbose", "--output", "some file.txt"]
 
 
-def test_application_installs_on_first_run_then_forwards_arguments(monkeypatch, tmp_path):
+def test_application_installs_on_first_run_then_forwards_arguments(monkeypatch, temp_path):
     settings = SimpleNamespace(platform=SimpleNamespace(admin=False))
     calls = []
     monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
@@ -77,7 +77,7 @@ def test_application_installs_on_first_run_then_forwards_arguments(monkeypatch, 
     monkeypatch.setattr("ivaldi._install", lambda location, executable=None: calls.append(("install", location, executable)))
     monkeypatch.setattr("ivaldi._run", lambda location, args: calls.append(("run", location, args)) or 19)
 
-    result = application(["--flag", "some value"], executable=tmp_path / "launcher")
+    result = application(["--flag", "some value"], executable=temp_path / "launcher")
 
     assert result == 19
     assert calls[0][0] == "install"
@@ -95,7 +95,7 @@ def test_application_skips_install_for_an_existing_runtime(monkeypatch):
     assert application([]) == 7
 
 
-def test_application_requests_sudo_for_the_install_phase(monkeypatch, tmp_path):
+def test_application_requests_sudo_for_the_install_phase(monkeypatch, temp_path):
     settings = SimpleNamespace(platform=SimpleNamespace(admin="install"))
     monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
     monkeypatch.setattr("ivaldi.is_installed", lambda value: False)
@@ -103,10 +103,10 @@ def test_application_requests_sudo_for_the_install_phase(monkeypatch, tmp_path):
     monkeypatch.setattr("ivaldi._install", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("local install")))
 
     with pytest.raises(SystemExit, match="sudo"):
-        application(["--flag"], executable=tmp_path / "launcher")
+        application(["--flag"], executable=temp_path / "launcher")
 
 
-def test_application_requests_sudo_before_install_and_run_for_admin_true(monkeypatch, tmp_path):
+def test_application_requests_sudo_before_install_and_run_for_admin_true(monkeypatch, temp_path):
     settings = SimpleNamespace(platform=SimpleNamespace(admin=True))
     monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
     monkeypatch.setattr("ivaldi.is_installed", lambda value: False)
@@ -115,10 +115,10 @@ def test_application_requests_sudo_before_install_and_run_for_admin_true(monkeyp
     monkeypatch.setattr("ivaldi._run", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("local run")))
 
     with pytest.raises(SystemExit, match="sudo"):
-        application(["launch"], executable=tmp_path / "launcher")
+        application(["launch"], executable=temp_path / "launcher")
 
 
-def test_install_only_admin_mode_exits_after_privileged_install(monkeypatch, tmp_path):
+def test_install_only_admin_mode_exits_after_privileged_install(monkeypatch, temp_path):
     settings = SimpleNamespace(platform=SimpleNamespace(admin="install"))
     calls = []
     monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
@@ -127,13 +127,13 @@ def test_install_only_admin_mode_exits_after_privileged_install(monkeypatch, tmp
     monkeypatch.setattr("ivaldi._install", lambda *args, **kwargs: calls.append("install"))
     monkeypatch.setattr("ivaldi._run", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("privileged run")))
 
-    assert application([], executable=tmp_path / "launcher") == 0
+    assert application([], executable=temp_path / "launcher") == 0
     assert calls == ["install"]
 
 
-def test_application_elevates_an_existing_install_for_run(monkeypatch, tmp_path):
+def test_application_elevates_an_existing_install_for_run(monkeypatch, temp_path):
     settings = SimpleNamespace(platform=SimpleNamespace(admin="run"))
-    launcher = tmp_path / "launcher"
+    launcher = temp_path / "launcher"
     monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
     monkeypatch.setattr("ivaldi.is_installed", lambda value: True)
     monkeypatch.setattr("ivaldi.is_admin", lambda: False)

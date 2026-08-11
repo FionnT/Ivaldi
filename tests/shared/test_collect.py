@@ -3,8 +3,8 @@ from types import SimpleNamespace
 from ivaldi.shared.collect import build_rules, collect, ensure_required_files
 
 
-def test_ensure_required_files_collects_existing_configuration(tmp_path):
-    project = tmp_path / "project"
+def test_ensure_required_files_collects_existing_configuration(temp_path):
+    project = temp_path / "project"
     project.mkdir()
     requirements = project / "requirements.txt"
     readme = project / "README.md"
@@ -17,8 +17,8 @@ def test_ensure_required_files_collects_existing_configuration(tmp_path):
     assert not (project / "pyproject.toml").exists()
 
 
-def test_ensure_required_files_prefers_pyproject(tmp_path):
-    project = tmp_path / "project"
+def test_ensure_required_files_prefers_pyproject(temp_path):
+    project = temp_path / "project"
     project.mkdir()
     pyproject = project / "pyproject.toml"
     requirements = project / "requirements.txt"
@@ -30,8 +30,8 @@ def test_ensure_required_files_prefers_pyproject(tmp_path):
     assert collected == [pyproject]
 
 
-def test_ensure_required_files_creates_fallback_project_configuration(tmp_path, caplog):
-    project = tmp_path / "My Example_App"
+def test_ensure_required_files_creates_fallback_project_configuration(temp_path, caplog):
+    project = temp_path / "My Example_App"
     project.mkdir()
 
     collected = ensure_required_files([], project)
@@ -45,9 +45,9 @@ def test_ensure_required_files_creates_fallback_project_configuration(tmp_path, 
     assert "No pyproject.toml or requirements.txt found" in caplog.text
 
 
-def test_specific_include_supersedes_broader_exclude(tmp_path):
-    project = tmp_path / "project"
-    stage = tmp_path / "stage"
+def test_specific_include_supersedes_broader_exclude(temp_path):
+    project = temp_path / "project"
+    stage = temp_path / "stage"
     temp = project / "someproject/storage/temp"
     package = project / "someproject/package"
     temp.mkdir(parents=True)
@@ -77,10 +77,10 @@ def test_specific_include_supersedes_broader_exclude(tmp_path):
     assert not (stage / "someproject/storage/temp/cache.db").exists()
 
 
-def test_build_rules_normalizes_recursive_directory_exclusions(tmp_path):
+def test_build_rules_normalizes_recursive_directory_exclusions(temp_path):
     settings = SimpleNamespace(
         app=SimpleNamespace(include=[], exclude=["cache/**/*", "build/**"]),
-        dirs=SimpleNamespace(project=tmp_path),
+        dirs=SimpleNamespace(project=temp_path),
     )
 
     exclusions, includes = build_rules(settings)

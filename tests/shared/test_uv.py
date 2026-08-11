@@ -49,8 +49,8 @@ class Response:
         yield from self.chunks
 
 
-def make_uv_settings(tmp_path):
-    app = tmp_path / "app"
+def make_uv_settings(temp_path):
+    app = temp_path / "app"
     bin_directory = app / "bin"
     app.mkdir()
     bin_directory.mkdir()
@@ -61,8 +61,8 @@ def make_uv_settings(tmp_path):
     )
 
 
-def test_install_uv_downloads_extracts_and_records_executables(tmp_path, monkeypatch):
-    settings = make_uv_settings(tmp_path)
+def test_install_uv_downloads_extracts_and_records_executables(temp_path, monkeypatch):
+    settings = make_uv_settings(temp_path)
     captured = {}
     monkeypatch.setattr("ivaldi.shared.uv.resolve_release", lambda: UV_ARTIFACTS.LINUX_X64)
     monkeypatch.setattr(
@@ -85,8 +85,8 @@ def test_install_uv_downloads_extracts_and_records_executables(tmp_path, monkeyp
     assert settings.bin.uvx == settings.dirs.bin / "uvx"
 
 
-def test_install_uv_sets_windows_executable_suffix(tmp_path, monkeypatch):
-    settings = make_uv_settings(tmp_path)
+def test_install_uv_sets_windows_executable_suffix(temp_path, monkeypatch):
+    settings = make_uv_settings(temp_path)
     monkeypatch.setattr("ivaldi.shared.uv.resolve_release", lambda: UV_ARTIFACTS.WINDOWS_X64)
     monkeypatch.setattr("ivaldi.shared.uv.requests.get", lambda *args, **kwargs: Response())
     monkeypatch.setattr("ivaldi.shared.uv.extract", lambda **kwargs: None)
@@ -98,8 +98,8 @@ def test_install_uv_sets_windows_executable_suffix(tmp_path, monkeypatch):
     assert settings.bin.uvx.name == "uvx.exe"
 
 
-def test_install_uv_rejects_missing_content_length(tmp_path, monkeypatch):
-    settings = make_uv_settings(tmp_path)
+def test_install_uv_rejects_missing_content_length(temp_path, monkeypatch):
+    settings = make_uv_settings(temp_path)
     monkeypatch.setattr("ivaldi.shared.uv.resolve_release", lambda: UV_ARTIFACTS.LINUX_X64)
     monkeypatch.setattr("ivaldi.shared.uv.requests.get", lambda *args, **kwargs: Response(content_length=None))
 
@@ -107,8 +107,8 @@ def test_install_uv_rejects_missing_content_length(tmp_path, monkeypatch):
         install_uv(settings)
 
 
-def test_install_uv_cleans_temporary_download_after_failure(tmp_path, monkeypatch):
-    settings = make_uv_settings(tmp_path)
+def test_install_uv_cleans_temporary_download_after_failure(temp_path, monkeypatch):
+    settings = make_uv_settings(temp_path)
 
     class BrokenResponse(Response):
         def iter_content(self, chunk_size):
