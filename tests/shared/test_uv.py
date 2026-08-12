@@ -69,6 +69,7 @@ def test_install_uv_downloads_extracts_and_records_executables(temp_path, monkey
         "ivaldi.shared.uv.requests.get",
         lambda url, stream: captured.update(url=url, stream=stream) or Response(),
     )
+
     def extract(location, destination):
         captured.update(location=location, destination=destination)
         (destination / "uv").touch()
@@ -91,6 +92,7 @@ def test_install_uv_sets_windows_executable_suffix(temp_path, monkeypatch):
     settings = make_uv_settings(temp_path)
     monkeypatch.setattr("ivaldi.shared.uv.resolve_release", lambda: UV_ARTIFACTS.WINDOWS_X64)
     monkeypatch.setattr("ivaldi.shared.uv.requests.get", lambda *args, **kwargs: Response())
+
     def extract(**kwargs):
         (kwargs["destination"] / "uv.exe").touch()
         (kwargs["destination"] / "uvx.exe").touch()
