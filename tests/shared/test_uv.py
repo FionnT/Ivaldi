@@ -69,10 +69,12 @@ def test_install_uv_downloads_extracts_and_records_executables(temp_path, monkey
         "ivaldi.shared.uv.requests.get",
         lambda url, stream: captured.update(url=url, stream=stream) or Response(),
     )
-    monkeypatch.setattr(
-        "ivaldi.shared.uv.extract",
-        lambda location, destination: captured.update(location=location, destination=destination),
-    )
+    def extract(location, destination):
+        captured.update(location=location, destination=destination)
+        (destination / "uv").touch()
+        (destination / "uvx").touch()
+
+    monkeypatch.setattr("ivaldi.shared.uv.extract", extract)
     monkeypatch.setattr("ivaldi.shared.uv.platform.system", lambda: "Linux")
 
     install_uv(settings)
@@ -89,13 +91,28 @@ def test_install_uv_sets_windows_executable_suffix(temp_path, monkeypatch):
     settings = make_uv_settings(temp_path)
     monkeypatch.setattr("ivaldi.shared.uv.resolve_release", lambda: UV_ARTIFACTS.WINDOWS_X64)
     monkeypatch.setattr("ivaldi.shared.uv.requests.get", lambda *args, **kwargs: Response())
-    monkeypatch.setattr("ivaldi.shared.uv.extract", lambda **kwargs: None)
+    def extract(**kwargs):
+        (kwargs["destination"] / "uv.exe").touch()
+        (kwargs["destination"] / "uvx.exe").touch()
+
+    monkeypatch.setattr("ivaldi.shared.uv.extract", extract)
     monkeypatch.setattr("ivaldi.shared.uv.platform.system", lambda: "Windows")
 
     install_uv(settings)
 
     assert settings.bin.uv.name == "uv.exe"
     assert settings.bin.uvx.name == "uvx.exe"
+
+
+def test_install_uv_rejects_archive_without_executables(temp_path, monkeypatch):
+    settings = make_uv_settings(temp_path)
+    monkeypatch.setattr("ivaldi.shared.uv.resolve_release", lambda: UV_ARTIFACTS.WINDOWS_X64)
+    monkeypatch.setattr("ivaldi.shared.uv.requests.get", lambda *args, **kwargs: Response())
+    monkeypatch.setattr("ivaldi.shared.uv.extract", lambda **kwargs: None)
+    monkeypatch.setattr("ivaldi.shared.uv.platform.system", lambda: "Windows")
+
+    with pytest.raises(FileNotFoundError, match=r"uv\.exe, uvx\.exe"):
+        install_uv(settings)
 
 
 def test_install_uv_rejects_missing_content_length(temp_path, monkeypatch):

@@ -95,6 +95,41 @@ def test_application_skips_install_for_an_existing_runtime(monkeypatch):
     assert application([]) == 7
 
 
+@pytest.mark.parametrize("installed", [False, True])
+def test_application_uninstalls_without_installing_or_running(monkeypatch, temp_path, installed):
+    settings = SimpleNamespace(platform=SimpleNamespace(admin=False))
+    calls = []
+    monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
+    monkeypatch.setattr("ivaldi.is_installed", lambda value: installed)
+    monkeypatch.setattr("ivaldi._install", lambda *args, **kwargs: calls.append("install"))
+    monkeypatch.setattr("ivaldi._run", lambda *args, **kwargs: calls.append("run"))
+    monkeypatch.setattr("ivaldi._uninstall", lambda location: calls.append("uninstall"))
+
+    assert application(["--uninstall"], executable=temp_path / "launcher") == 0
+    assert calls == ["uninstall"]
+
+
+def test_application_requests_install_privileges_for_uninstall(monkeypatch, temp_path):
+    settings = SimpleNamespace(platform=SimpleNamespace(admin="install"))
+    launcher = temp_path / "launcher"
+    monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
+    monkeypatch.setattr("ivaldi.is_admin", lambda: False)
+    monkeypatch.setattr("ivaldi._uninstall", lambda location: (_ for _ in ()).throw(AssertionError("local uninstall")))
+    monkeypatch.setattr("ivaldi.run_elevated", lambda executable, args: (executable, args))
+
+    assert application(["--uninstall"], executable=launcher) == (launcher.resolve(), ["--uninstall"])
+
+
+def test_application_does_not_forward_uninstall_with_other_arguments(monkeypatch, temp_path):
+    settings = SimpleNamespace(platform=SimpleNamespace(admin=False))
+    monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)
+    monkeypatch.setattr("ivaldi._uninstall", lambda location: (_ for _ in ()).throw(AssertionError("ambiguous uninstall")))
+    monkeypatch.setattr("ivaldi._run", lambda *args, **kwargs: (_ for _ in ()).throw(AssertionError("forwarded uninstall")))
+
+    with pytest.raises(SystemExit, match="does not accept other arguments"):
+        application(["launch", "--uninstall"], executable=temp_path / "launcher")
+
+
 def test_application_requests_sudo_for_the_install_phase(monkeypatch, temp_path):
     settings = SimpleNamespace(platform=SimpleNamespace(admin="install"))
     monkeypatch.setattr("ivaldi.load_settings", lambda **kwargs: settings)

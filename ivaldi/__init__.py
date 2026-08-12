@@ -5,6 +5,7 @@ from pathlib import Path
 from ivaldi.commands.build import build as _build
 from ivaldi.commands.install import install as _install
 from ivaldi.commands.run import run as _run
+from ivaldi.commands.uninstall import uninstall as _uninstall
 from ivaldi.shared.admin import is_admin, needs_admin, run_elevated
 from ivaldi.shared.settings import is_installed, load_settings
 
@@ -51,11 +52,20 @@ def run():
 
 def application(args=None, executable=None):
     """Install the bundled application once, then run it with the given arguments."""
-    arguments = sys.argv[1:] if args is None else args
+    arguments = list(sys.argv[1:] if args is None else args)
     launcher = Path(sys.argv[0] if executable is None else executable).resolve()
     settings = load_settings(location=location, build=False)
-    installed = is_installed(settings)
     administrator = is_admin()
+
+    if "--uninstall" in arguments:
+        if arguments != ["--uninstall"]:
+            raise SystemExit("--uninstall does not accept other arguments")
+        if needs_admin(settings.platform.admin, "install") and not administrator:
+            return run_elevated(launcher, arguments)
+        _uninstall(location)
+        return 0
+
+    installed = is_installed(settings)
 
     if not installed and needs_admin(settings.platform.admin, "install"):
         if not administrator:

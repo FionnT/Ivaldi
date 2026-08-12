@@ -4,6 +4,23 @@ Ivaldi turns a Python project into a platform-specific, one-file launcher. The l
 
 [![Contributions Welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/FionnT/ivaldi/issues) | [![Code Quality and Tests](https://github.com/FionnT/Ivaldi/actions/workflows/code_quality.yaml/badge.svg)](https://github.com/FionnT/Ivaldi/actions/workflows/code_quality.yaml) [![Coverage badge](https://github.com/FionnT/ivaldi/raw/python-coverage-comment-action-data/badge.svg)](https://github.com/FionnT/ivaldi/tree/python-coverage-comment-action-data)
 
+## Build and run
+
+From the wrapped project:
+
+```console
+ivaldi build
+```
+
+The command builds the project wheel in an isolated environment, places the wheel and `ivaldi.toml` in the embedded payload, optionally collects dependency wheels, and invokes Nuitka. The generated launcher is written to the project's `dist/` directory using the current platform's `alias`. Nuitka uses cached onefile extraction under a cache directory named by the platform's `location` value.
+
+If dependency wheels are requested, Ivaldi uses `uv` from `PATH` when available. Otherwise it downloads the configured UV release into a versioned local tool cache and uses that copy.
+
+On the launcher's first run, Ivaldi downloads UV and the configured Python, creates a dedicated virtual environment in the platform data directory, installs the embedded wheel, and runs the configured entrypoint. Subsequent runs skip installation and forward their arguments through UV to that managed Python environment.
+
+Run the compiled launcher with `--uninstall` to remove its installed runtime, copied command, and managed shell alias. The option is available before or after installation and can safely be run more than once. Applications configured to require administrator privileges for installation must also be uninstalled with those privileges.
+
+
 
 ## Configuration
 
@@ -69,7 +86,9 @@ version = "3.14.5"
 
 ```
 
-When no standalone configuration exists, Ivaldi extracts only `[tool.ivaldi]` and writes it to a project-root `ivaldi.toml` before building. Generated files include a schema directive and are refreshed when `[tool.ivaldi]` changes; a hand-written standalone file remains authoritative. The formal configuration definition is available in [`ivaldi.schema.json`](https://github.com/FionnT/Ivaldi/blob/main/ivaldi.schema.json), and the same schema describes the object nested under `[tool.ivaldi]`.
+When no standalone configuration exists, Ivaldi extracts `[tool.ivaldi.*]` and writes it to a project-root `ivaldi.toml` before building. Generated files include a schema directive and are refreshed when `[tool.ivaldi]` changes; a hand-written standalone file remains authoritative.
+
+The formal configuration definition is available in [`ivaldi.schema.json`](https://github.com/FionnT/Ivaldi/blob/main/ivaldi.schema.json), and the same schema describes the object nested under `[tool.ivaldi]`.
 
 --- 
 
@@ -153,16 +172,3 @@ All default settings and flags are visible in [the ivaldi settings dataclass](ht
 ```
   
 
-## Build and run
-
-From the wrapped project:
-
-```console
-ivaldi build
-```
-
-The command builds the project wheel in an isolated environment, places the wheel and `ivaldi.toml` in the embedded payload, optionally collects dependency wheels, and invokes Nuitka. The generated launcher is written to the project's `dist/` directory using the current platform's `alias`. Nuitka uses cached onefile extraction under a cache directory named by the platform's `location` value.
-
-If dependency wheels are requested, Ivaldi uses `uv` from `PATH` when available. Otherwise it downloads the configured UV release into a versioned local tool cache and uses that copy.
-
-On the launcher's first run, Ivaldi downloads UV and the configured Python, creates a dedicated virtual environment in the platform data directory, installs the embedded wheel, and runs the configured entrypoint. Subsequent runs skip installation and forward their arguments through UV to that managed Python environment.

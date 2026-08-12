@@ -40,8 +40,10 @@ def set_platform_home(settings):
     if system == "Windows":
         settings.bin.uv = settings.dirs.bin / "uv.exe"
         settings.bin.python = settings.dirs.venv / "Scripts" / "python.exe"
+        settings.bin.uvx = settings.dirs.bin / "uvx.exe"
     else:
         settings.bin.uv = settings.dirs.bin / "uv"
+        settings.bin.uvx = settings.dirs.bin / "uvx"
         settings.bin.python = settings.dirs.venv / "bin" / "python"
 
     return settings

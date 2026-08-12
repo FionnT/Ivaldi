@@ -3,8 +3,18 @@ import platform
 import shlex
 import shutil
 import stat
+import subprocess
 import tempfile
 from pathlib import Path
+
+
+def command_name(alias: str) -> str:
+    """Return the platform-specific filename used for a command alias."""
+    if not alias or alias in {".", ".."} or "/" in alias or "\\" in alias:
+        raise ValueError("platform.alias must be a command name without path components")
+    if platform.system() == "Windows" and not alias.lower().endswith(".exe"):
+        return f"{alias}.exe"
+    return alias
 
 
 def get_shell_config() -> tuple[Path, str]:
@@ -49,8 +59,7 @@ def write_shell_alias(alias: str, source: Path) -> Path:
 
 def install_command(settings, source: Path, alias: str) -> Path:
     """Copy a launcher into the configured command directory."""
-    if platform.system() == "Windows" and not alias.lower().endswith(".exe"):
-        alias += ".exe"
+    alias = command_name(alias)
     destination = settings.dirs.exec / alias
     if source == destination.resolve():
         return destination
@@ -77,8 +86,7 @@ def install_alias(settings, executable: Path | None) -> Path | None:
         return None
 
     alias = settings.platform.alias
-    if not alias or Path(alias).name != alias:
-        raise ValueError("platform.alias must be a command name without path components")
+    command_name(alias)
 
     source = executable.resolve()
     if not source.is_file():
@@ -87,4 +95,75 @@ def install_alias(settings, executable: Path | None) -> Path | None:
     if platform.system() == "Windows":
         return destination
     write_shell_alias(alias, destination)
+    return destination
+
+
+def remove_shell_alias(alias: str) -> list[Path]:
+    """Remove Ivaldi-managed alias blocks from shell startup files."""
+    start_marker = f"# >>> ivaldi alias: {alias} >>>"
+    end_marker = f"# <<< ivaldi alias: {alias} <<<"
+    home = Path.home()
+    configs = {
+        home / ".zshrc",
+        home / ".bash_profile",
+        home / ".bashrc",
+        home / ".config/fish/config.fish",
+        home / ".profile",
+    }
+    changed = []
+
+    for config in configs:
+        if not config.is_file():
+            continue
+        content = config.read_text(encoding="utf-8")
+        original = content
+        while True:
+            start = content.find(start_marker)
+            end = content.find(end_marker, start + len(start_marker)) if start >= 0 else -1
+            if start < 0 or end < 0:
+                break
+            end += len(end_marker)
+            if end < len(content) and content[end] == "\n":
+                end += 1
+            content = f"{content[:start]}{content[end:]}"
+        if content != original:
+            config.write_text(content, encoding="utf-8")
+            changed.append(config)
+    return changed
+
+
+def remove_command(destination: Path) -> None:
+    """Remove a command, deferring deletion when Windows has it open."""
+    try:
+        destination.unlink(missing_ok=True)
+        return
+    except PermissionError:
+        if platform.system() != "Windows":
+            raise
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".cmd", delete=False, encoding="utf-8") as file:
+        cleanup = Path(file.name)
+        file.write(f'@echo off\nfor /L %%i in (1,1,60) do (\n  del /f /q "{destination}" >nul 2>nul\n  if not exist "{destination}" goto done\n  ping 127.0.0.1 -n 2 >nul\n)\n:done\ndel /f /q "%~f0"\n')
+    creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
+    try:
+        subprocess.Popen(
+            ["cmd.exe", "/d", "/c", str(cleanup)],
+            close_fds=True,
+            creationflags=creation_flags,
+        )
+    except Exception:
+        cleanup.unlink(missing_ok=True)
+        raise
+
+
+def uninstall_alias(settings) -> Path | None:
+    """Remove the installed launcher command and managed shell aliases."""
+    if not settings.platform.add_to_path:
+        return None
+
+    alias = settings.platform.alias
+    destination = settings.dirs.exec / command_name(alias)
+    remove_command(destination)
+    if platform.system() != "Windows":
+        remove_shell_alias(alias)
     return destination

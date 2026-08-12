@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ivaldi.shared.alias import get_shell_config, install_alias
+from ivaldi.shared.alias import get_shell_config, install_alias, remove_command, uninstall_alias
 
 
 def make_settings(temp_path, alias="my-command", add_to_path=True):
@@ -125,3 +125,50 @@ def test_install_alias_cleans_windows_temporary_file_after_copy_failure(monkeypa
     with pytest.raises(OSError, match="copy failed"):
         install_alias(make_settings(temp_path), executable)
     assert list(destination.iterdir()) == []
+
+
+def test_uninstall_alias_removes_command_and_managed_shell_blocks(temp_path, monkeypatch):
+    settings = make_settings(temp_path)
+    command = settings.dirs.exec / "my-command"
+    command.parent.mkdir()
+    command.touch()
+    zshrc = temp_path / ".zshrc"
+    zshrc.write_text(
+        f"export KEEP=true\n# >>> ivaldi alias: my-command >>>\nalias my-command={command}\n# <<< ivaldi alias: my-command <<<\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr("ivaldi.shared.alias.Path.home", lambda: temp_path)
+    monkeypatch.setattr("ivaldi.shared.alias.platform.system", lambda: "Linux")
+
+    assert uninstall_alias(settings) == command
+    assert not command.exists()
+    assert zshrc.read_text(encoding="utf-8") == "export KEEP=true\n"
+
+    assert uninstall_alias(settings) == command
+
+
+def test_uninstall_alias_does_nothing_when_add_to_path_is_disabled(temp_path):
+    assert uninstall_alias(make_settings(temp_path, add_to_path=False)) is None
+
+
+def test_remove_command_defers_deleting_a_running_windows_launcher(temp_path, monkeypatch):
+    command = temp_path / "my-command.exe"
+    command.touch()
+    started = {}
+    original_unlink = type(command).unlink
+
+    def locked_unlink(path, *args, **kwargs):
+        if path == command:
+            raise PermissionError("in use")
+        return original_unlink(path, *args, **kwargs)
+
+    monkeypatch.setattr(type(command), "unlink", locked_unlink)
+    monkeypatch.setattr("ivaldi.shared.alias.platform.system", lambda: "Windows")
+    monkeypatch.setattr("ivaldi.shared.alias.subprocess.Popen", lambda args, **kwargs: started.update(args=args, kwargs=kwargs))
+
+    remove_command(command)
+
+    assert started["args"][:3] == ["cmd.exe", "/d", "/c"]
+    cleanup = type(command)(started["args"][3])
+    assert str(command) in cleanup.read_text(encoding="utf-8")
+    original_unlink(cleanup)

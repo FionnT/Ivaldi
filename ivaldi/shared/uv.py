@@ -64,8 +64,13 @@ def install_uv(settings: Settings):
 
     extract(location=destination, destination=settings.dirs.bin)
 
-    logger.info("Installed UV %s successfully", version)
-
     executable_suffix = ".exe" if platform.system() == "Windows" else ""
     settings.bin.uv = settings.dirs.bin / f"uv{executable_suffix}"
     settings.bin.uvx = settings.dirs.bin / f"uvx{executable_suffix}"
+
+    missing = [executable for executable in (settings.bin.uv, settings.bin.uvx) if not executable.is_file()]
+    if missing:
+        names = ", ".join(executable.name for executable in missing)
+        raise FileNotFoundError(f"UV archive did not contain the expected executable(s): {names}")
+
+    logger.info("Installed UV %s successfully", version)

@@ -37,6 +37,20 @@ def test_extract_zip_archive_moves_files_to_destination(temp_path):
     assert not archive.exists()
 
 
+def test_extract_zip_archive_moves_root_files_to_destination(temp_path):
+    archive = temp_path / "tool.zip"
+    with zipfile.ZipFile(archive, "w") as zipped:
+        zipped.writestr("uv.exe", "uv")
+        zipped.writestr("uvx.exe", "uvx")
+
+    destination = temp_path / "bin"
+    extract(archive, destination)
+
+    assert (destination / "uv.exe").read_text(encoding="utf-8") == "uv"
+    assert (destination / "uvx.exe").read_text(encoding="utf-8") == "uvx"
+    assert not archive.exists()
+
+
 def test_extract_rejects_unknown_archive(temp_path):
     archive = temp_path / "tool.bin"
     archive.touch()
