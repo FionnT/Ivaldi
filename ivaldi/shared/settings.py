@@ -21,7 +21,7 @@ def ensure_path(home: Path, exec_dir: Path):
     for profile in [".zshrc", ".bash_profile", ".bashrc"]:
         config = home / profile
         config.touch(exist_ok=True)
-        if config.exists() and config.is_dir():
+        if config.exists() and config.is_file():
             with config.open("a") as c:
                 c.write(f'export PATH="$PATH:{exec_dir.resolve()!s}"')
 
