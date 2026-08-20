@@ -17,11 +17,11 @@
 | ivaldi/shared/extract.py     |       24 |        0 |    100% |           |
 | ivaldi/shared/project.py     |       56 |        0 |    100% |           |
 | ivaldi/shared/python.py      |       43 |        0 |    100% |           |
-| ivaldi/shared/settings.py    |      185 |        0 |    100% |           |
+| ivaldi/shared/settings.py    |      184 |        0 |    100% |           |
 | ivaldi/shared/uv.py          |       55 |        0 |    100% |           |
 | ivaldi/types/enums.py        |       66 |        0 |    100% |           |
 | ivaldi/types/settings.py     |       94 |        0 |    100% |           |
-| **TOTAL**                    | **1018** |    **5** | **99%** |           |
+| **TOTAL**                    | **1017** |    **5** | **99%** |           |
 
 
 ## Setup coverage badge
