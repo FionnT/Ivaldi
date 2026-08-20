@@ -17,24 +17,29 @@ SCHEMA_URL = "https://raw.githubusercontent.com/FionnT/Ivaldi/main/ivaldi.schema
 GENERATED_CONFIG_HEADER = "# Generated from [tool.ivaldi] in pyproject.toml"
 
 
+def ensure_path(home: Path, exec_dir: Path):
+    for profile in [".zshrc", ".bash_profile", ".bashrc"]:
+        config = home / profile
+        config.touch(exist_ok=True)
+        if config.exists() and config.is_dir():
+            with config.open("a") as c:
+                c.write(f'export PATH="$PATH:{exec_dir.resolve()!s}"')
+
+
 def set_platform_home(settings):
 
     if system == "Darwin":
         home = user_home()
         settings.dirs.exec = (home / "bin").resolve()
+        ensure_path(home, settings.dirs.exec)
         settings.dirs.app = home / "Library" / "Application Support" / settings.platform.location
     elif system == "Windows":
         settings.dirs.app = Path(os.environ["APPDATA"]) / settings.platform.location
         settings.dirs.exec = (Path(os.environ["LOCALAPPDATA"]) / "Microsoft" / "WindowsApps").resolve()
-
     elif system == "Linux":
         home = user_home()
         settings.dirs.exec = home / ".local" / "bin"
-
-        echo = ["echo", "-c", f"export PATH='$PATH:{settings.dirs.exec!s}'", ">>"]
-        for profile in ["~/.zshrc", "~/.bash_profile", "~/.bashrc"]:
-            cmd = echo + [profile]
-            subprocess.run(cmd, shell=False, check=False)
+        ensure_path(home, settings.dirs.exec)
 
         settings.dirs.app = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / settings.platform.location
     else:
