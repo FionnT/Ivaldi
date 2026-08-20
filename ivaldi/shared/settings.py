@@ -3,6 +3,7 @@ import logging
 import os
 import platform
 import shutil
+import subprocess
 import tomllib
 from pathlib import Path
 
@@ -29,6 +30,12 @@ def set_platform_home(settings):
     elif system == "Linux":
         home = user_home()
         settings.dirs.exec = home / ".local" / "bin"
+
+        echo = ["echo", "-c", f"export PATH='$PATH:{settings.dirs.exec!s}'", ">>"]
+        for profile in ["~/.zshrc", "~/.bash_profile", "~/.bashrc"]:
+            cmd = echo + [profile]
+            subprocess.run(cmd, shell=False, check=False)
+
         settings.dirs.app = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / settings.platform.location
     else:
         raise RuntimeError(f"Unsupported platform: {system}")
