@@ -6,7 +6,6 @@ import sys
 import tomllib
 from email.parser import BytesParser
 from pathlib import Path
-from types import SimpleNamespace
 from zipfile import ZipFile
 
 from build import ProjectBuilder
@@ -14,25 +13,27 @@ from build.env import DefaultIsolatedEnv
 
 from ivaldi.shared.uv import install_uv
 from ivaldi.types.enums import IVALDI
+from ivaldi.types.settings import Directories, Settings, require
 
 logger = logging.getLogger(__name__)
 
 
-def prepare_build(settings):
+def prepare_build(settings: Settings):
     """Create clean source and payload directories for a reproducible build."""
-    for directory in (settings.dirs.stage, settings.dirs.dist):
+    stage = require(settings.dirs.stage, "dirs.stage")
+    for directory in (stage, settings.dirs.dist):
         if directory.exists():
             shutil.rmtree(directory)
         directory.mkdir(parents=True)
-    (settings.dirs.stage / ".gitkeep").touch()
+    (stage / ".gitkeep").touch()
 
     config = settings.dirs.project / "ivaldi.toml"
     shutil.copy2(config, settings.dirs.dist / config.name)
 
 
-def build_project_wheel(settings) -> Path:
+def build_project_wheel(settings: Settings) -> Path:
     with DefaultIsolatedEnv() as env:
-        builder = ProjectBuilder.from_isolated_env(env, settings.dirs.stage)
+        builder = ProjectBuilder.from_isolated_env(env, require(settings.dirs.stage, "dirs.stage"))
         env.install(builder.build_system_requires)
         env.install(builder.get_requires_for_build(distribution="wheel"))
         wheel = builder.build(distribution="wheel", output_directory=settings.dirs.dist)
@@ -42,15 +43,15 @@ def build_project_wheel(settings) -> Path:
     return wheel
 
 
-def get_configured_extras(settings) -> list[str]:
+def get_configured_extras(settings: Settings) -> list[str]:
     if not settings.app.build.all_extras:
         return []
-    with open(settings.dirs.stage / "pyproject.toml", "rb") as file:
+    with open(require(settings.dirs.stage, "dirs.stage") / "pyproject.toml", "rb") as file:
         project = tomllib.load(file).get("project", {})
     return sorted(project.get("optional-dependencies", {}))
 
 
-def get_or_build_uv(settings) -> Path:
+def get_or_build_uv(settings: Settings) -> Path:
     available_uv = shutil.which("uv")
     if available_uv:
         return Path(available_uv)
@@ -60,17 +61,15 @@ def get_or_build_uv(settings) -> Path:
     if executable.is_file():
         return executable
 
-    local_settings = SimpleNamespace(
-        uv=settings.uv,
-        dirs=SimpleNamespace(app=tools, bin=tools / "bin"),
-        bin=SimpleNamespace(uv=None, uvx=None),
-    )
+    local_settings = Settings(dirs=Directories(project=settings.dirs.project, dist=settings.dirs.dist), uv=settings.uv)
+    local_settings.dirs.app = tools
+    local_settings.dirs.bin = tools / "bin"
     local_settings.dirs.bin.mkdir(parents=True, exist_ok=True)
     install_uv(local_settings)
     return local_settings.bin.uv
 
 
-def build_all_wheels(settings, wheel_location: Path | None = None):
+def build_all_wheels(settings: Settings, wheel_location: Path | None = None):
     """Download wheels for every runtime dependency into the embedded payload."""
     uv = get_or_build_uv(settings)
 
@@ -102,14 +101,14 @@ def build_all_wheels(settings, wheel_location: Path | None = None):
     subprocess.run(command, shell=False, check=True, cwd=settings.dirs.project)
 
 
-def get_executable_name(settings) -> str:
+def get_executable_name(settings: Settings) -> str:
     name = settings.platform.alias or settings.platform.name or settings.dirs.project.name
     if platform.system() == "Windows" and not name.lower().endswith(".exe"):
         name += ".exe"
     return name
 
 
-def get_project_version(settings) -> str:
+def get_project_version(settings: Settings) -> str:
     """Resolve the wrapped project's version, with app.version as fallback."""
     pyproject = settings.dirs.project / "pyproject.toml"
     if pyproject.is_file():
@@ -138,7 +137,7 @@ def get_project_version(settings) -> str:
     return version
 
 
-def get_nuitka_metadata_args(settings) -> list[str]:
+def get_nuitka_metadata_args(settings: Settings) -> list[str]:
     """Build Nuitka metadata and platform-specific icon arguments."""
     arguments = []
     for option, value in (
@@ -175,9 +174,9 @@ def get_nuitka_metadata_args(settings) -> list[str]:
     return arguments
 
 
-def build_executable(location: Path, settings) -> Path:
+def build_executable(location: Path, settings: Settings) -> Path:
     """Compile Ivaldi as a one-file wrapper containing the installation payload."""
-    output_dir = settings.dirs.output
+    output_dir = require(settings.dirs.output, "dirs.output")
     output_dir.mkdir(exist_ok=True, parents=True)
     output_name = get_executable_name(settings)
 

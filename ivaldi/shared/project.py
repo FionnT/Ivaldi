@@ -4,6 +4,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 from ivaldi.types.enums import IVALDI
+from ivaldi.types.settings import Settings
 
 
 def get_wheel_requirement(wheel: Path, all_extras: bool) -> str:
@@ -22,14 +23,14 @@ def get_wheel_requirement(wheel: Path, all_extras: bool) -> str:
     return requirement
 
 
-def handle_install_flags(settings):
+def handle_install_flags(settings: Settings) -> list[str]:
     install_flags = []
     if settings.app.build.include_wheels:
         install_flags.append("--no-index")
     return install_flags
 
 
-def handle_wheel(settings):
+def handle_wheel(settings: Settings) -> Path:
     manifest = settings.dirs.dist / IVALDI.WHEEL_MANIFEST
     if manifest.is_file():
         wheel_name = manifest.read_text(encoding="utf-8").strip()
@@ -48,7 +49,7 @@ def handle_wheel(settings):
     return wheel_location
 
 
-def install_project(settings):
+def install_project(settings: Settings) -> str:
 
     wheel_location = handle_wheel(settings)
     wheel_requirement = get_wheel_requirement(wheel_location, settings.app.build.all_extras)
@@ -76,18 +77,19 @@ def install_project(settings):
         dist,
     ]
 
-    install = subprocess.run(
-        command,
-        shell=False,
-        check=True,
-    )
-    if install.returncode != 0:
-        raise RuntimeError(f"Project install failed - exited with code {install.returncode} - {install}")
+    try:
+        subprocess.run(
+            command,
+            shell=False,
+            check=True,
+        )
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(f"Project install failed - exited with code {error.returncode}") from error
 
     return installed_wheel
 
 
-def mark_installed(settings) -> None:
+def mark_installed(settings: Settings) -> None:
     manifest = settings.dirs.dist / IVALDI.WHEEL_MANIFEST
     if not manifest.is_file():
         raise RuntimeError("The installed payload does not contain a wheel manifest")

@@ -5,7 +5,7 @@ import zipfile
 from pathlib import Path
 
 
-def extract(location, destination):
+def extract(location: str | Path, destination: str | Path) -> None:
     location = Path(location)
     destination = Path(destination)
 
@@ -26,6 +26,8 @@ def extract(location, destination):
         source = contents[0] if len(contents) == 1 and contents[0].is_dir() else extracted
         for file in source.iterdir():
             if file.is_file():
-                shutil.move(file, destination / file.name)
+                target = destination / file.name
+                target.unlink(missing_ok=True)  # Windows cannot rename over an existing file
+                shutil.move(file, target)
 
     location.unlink()

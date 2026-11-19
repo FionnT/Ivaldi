@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import NoReturn
 
 
 @dataclass(frozen=True)
@@ -57,6 +58,31 @@ def restore_sudo_ownership(path: Path) -> None:
         os.chown(directory, user.uid, user.gid, follow_symlinks=False)
 
 
+def claim_root_owned(*paths: Path) -> None:
+    """Hand root-owned paths created during an elevated install back to the sudo user.
+
+    Each path and its parents are claimed, stopping before the user's home, so
+    directories such as ``~/.local/bin`` and files such as ``~/.zshrc`` that were
+    created by root do not stay locked away from the invoking user. Paths owned
+    by anyone else, and paths outside the user's home, are left untouched.
+    """
+    user = sudo_user()
+    if user is None:
+        return
+
+    for path in paths:
+        current = Path(path)
+        while current != user.home and current.is_relative_to(user.home):
+            try:
+                status = current.lstat()
+            except FileNotFoundError:
+                current = current.parent
+                continue
+            if status.st_uid == 0:
+                os.chown(current, user.uid, user.gid, follow_symlinks=False)
+            current = current.parent
+
+
 def needs_admin(admin: bool | str, phase: str) -> bool:
     """Return whether a configured phase requires administrator privileges."""
     return admin is True or admin == phase
@@ -70,7 +96,7 @@ def is_admin() -> bool:
     return os.geteuid() == 0
 
 
-def run_elevated(*_args, **_kwargs):
+def run_elevated(*_args: object, **_kwargs: object) -> NoReturn:
     """Stop and ask the user to restart the launcher with elevated privileges."""
     if os.name == "nt":
         raise SystemExit("Administrator privileges are required; rerun this command as Administrator")

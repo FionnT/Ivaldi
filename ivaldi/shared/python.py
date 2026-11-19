@@ -4,10 +4,12 @@ import shutil
 import subprocess
 from pathlib import Path
 
+from ivaldi.types.settings import Settings, require
+
 logger = logging.getLogger(__name__)
 
 
-def get_uv_environment(python_install_dir):
+def get_uv_environment(python_install_dir: Path) -> dict[str, str]:
     environment = os.environ.copy()
     for variable in ("CONDA_PREFIX", "PYENV_VERSION", "VIRTUAL_ENV"):
         environment.pop(variable, None)
@@ -16,7 +18,7 @@ def get_uv_environment(python_install_dir):
     return environment
 
 
-def find_python(settings):
+def find_python(settings: Settings) -> Path:
     uv = f"{settings.bin.uv.resolve()!s}"
     install_dir = settings.dirs.bin.resolve()
     result = subprocess.run(
@@ -24,7 +26,7 @@ def find_python(settings):
             uv,
             "python",
             "find",
-            settings.python.version,
+            require(settings.python.version, "python.version"),
             "--managed-python",
             "--no-python-downloads",
             "--no-config",
@@ -42,7 +44,7 @@ def find_python(settings):
     return managed_python
 
 
-def install_python(settings):
+def install_python(settings: Settings):
 
     uv = f"{settings.bin.uv.resolve()!s}"
     dir = f"{settings.dirs.app.resolve()!s}"
@@ -53,15 +55,16 @@ def install_python(settings):
 
     flags = ["--cache-dir", uv_cache, "-i", bin] + extra_flags
 
-    command = [uv, "python", "install", settings.python.version, *flags, "--directory", dir]
-    install = subprocess.run(
-        command,
-        shell=False,
-        check=True,
-        env=get_uv_environment(settings.dirs.bin),
-    )
-    if install.returncode != 0:
-        raise RuntimeError(f"Python install failed - exited with code {install.returncode} - {install}")
+    command = [uv, "python", "install", require(settings.python.version, "python.version"), *flags, "--directory", dir]
+    try:
+        subprocess.run(
+            command,
+            shell=False,
+            check=True,
+            env=get_uv_environment(settings.dirs.bin),
+        )
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(f"Python install failed - exited with code {error.returncode}") from error
 
     managed_python = find_python(settings)
     settings.dirs.venv = settings.dirs.app / "venv"
@@ -73,24 +76,25 @@ def install_python(settings):
     if settings.dirs.venv.exists():
         shutil.rmtree(settings.dirs.venv)
 
-    create_venv = subprocess.run(
-        [
-            uv,
-            "venv",
-            str(settings.dirs.venv.resolve()),
-            "--python",
-            str(managed_python.resolve()),
-            "--managed-python",
-            "--no-python-downloads",
-            "--no-config",
-            "--cache-dir",
-            uv_cache,
-        ],
-        shell=False,
-        check=True,
-        env=get_uv_environment(settings.dirs.bin),
-    )
-    if create_venv.returncode != 0:
-        raise RuntimeError(f"Virtual environment creation failed - exited with code {create_venv.returncode} - {create_venv}")
+    try:
+        subprocess.run(
+            [
+                uv,
+                "venv",
+                str(settings.dirs.venv.resolve()),
+                "--python",
+                str(managed_python.resolve()),
+                "--managed-python",
+                "--no-python-downloads",
+                "--no-config",
+                "--cache-dir",
+                uv_cache,
+            ],
+            shell=False,
+            check=True,
+            env=get_uv_environment(settings.dirs.bin),
+        )
+    except subprocess.CalledProcessError as error:
+        raise RuntimeError(f"Virtual environment creation failed - exited with code {error.returncode}") from error
 
     logger.info("Installed Python %s successfully", settings.python.version)

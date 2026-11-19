@@ -40,6 +40,27 @@ def test_set_platform_home_for_supported_systems(temp_path, monkeypatch, system)
     assert settings.bin.python.name == f"python{expected_suffix}"
 
 
+@pytest.mark.parametrize(
+    ("system", "app", "exec_dir"),
+    [
+        ("Darwin", "Library/Application Support/app", ".local/bin"),
+        ("Linux", "xdg/app", ".local/bin"),
+        ("Windows", "AppData/Local/Programs/app", "AppData/Local/Microsoft/WindowsApps"),
+    ],
+)
+def test_set_platform_home_uses_per_user_locations(temp_path, monkeypatch, system, app, exec_dir):
+    monkeypatch.setattr("ivaldi.shared.settings.system", system)
+    monkeypatch.setattr("ivaldi.shared.settings.Path.home", lambda: temp_path)
+    monkeypatch.setenv("APPDATA", str(temp_path / "AppData/Roaming"))
+    monkeypatch.setenv("LOCALAPPDATA", str(temp_path / "AppData/Local"))
+    monkeypatch.setenv("XDG_DATA_HOME", str(temp_path / "xdg"))
+
+    settings = set_platform_home(make_settings())
+
+    assert settings.dirs.app == (temp_path / app)
+    assert settings.dirs.exec.resolve() == (temp_path / exec_dir).resolve()
+
+
 def test_set_platform_home_rejects_unsupported_system(monkeypatch):
     monkeypatch.setattr("ivaldi.shared.settings.system", "Plan9")
     with pytest.raises(RuntimeError, match="Unsupported platform"):
@@ -348,3 +369,68 @@ def test_install_marker_is_detected(temp_path, monkeypatch):
 def set_app(settings, app):
     settings.dirs.app = app
     return settings
+
+
+def make_clean_settings(temp_path, bundled, location="app"):
+    return SimpleNamespace(
+        platform=SimpleNamespace(location=location),
+        dirs=SimpleNamespace(dist=bundled),
+        bin=SimpleNamespace(),
+    )
+
+
+def test_clean_install_directories_remove_the_whole_previous_install(temp_path, monkeypatch):
+    bundled = temp_path / "bundle/dist"
+    bundled.mkdir(parents=True)
+    (bundled / "ivaldi.toml").write_text("[app]\n", encoding="utf-8")
+    app = temp_path / "app-data"
+    (app / "venv").mkdir(parents=True)
+    (app / "bin").mkdir()
+    (app / "bin/uv").touch()
+    (app / "cache").mkdir()
+    (app / "user-data.db").touch()
+    (app / IVALDI.INSTALL_MARKER).write_text("old.whl", encoding="utf-8")
+    settings = make_clean_settings(temp_path, bundled)
+
+    def set_test_home(value):
+        value.dirs.app = app
+        value.dirs.exec = temp_path / "exec"
+        value.dirs.bin = app / "bin"
+        value.dirs.uv = app / "cache"
+        value.dirs.venv = app / "venv"
+        return value
+
+    monkeypatch.setattr("ivaldi.shared.settings.set_platform_home", set_test_home)
+
+    load_install_directories(settings, clean=True)
+
+    assert sorted(item.name for item in app.iterdir()) == ["bin", "cache", "dist"]
+    assert list((app / "bin").iterdir()) == []
+    assert (app / "dist/ivaldi.toml").is_file()
+
+
+def test_clean_install_refuses_to_remove_the_directory_holding_the_payload(temp_path, monkeypatch):
+    app = temp_path / "app-data"
+    bundled = app / "dist"
+    bundled.mkdir(parents=True)
+    (bundled / "ivaldi.toml").touch()
+    settings = make_clean_settings(temp_path, bundled)
+    monkeypatch.setattr("ivaldi.shared.settings.set_platform_home", lambda value: setattr(value.dirs, "app", app) or value)
+
+    with pytest.raises(RuntimeError, match="Refusing to remove"):
+        load_install_directories(settings, clean=True)
+
+    assert (bundled / "ivaldi.toml").exists()
+
+
+@pytest.mark.parametrize("location", [".", "../shared", "/shared"])
+def test_clean_install_rejects_locations_outside_an_application_subdirectory(temp_path, monkeypatch, location):
+    app = temp_path / "app-data"
+    app.mkdir()
+    settings = make_clean_settings(temp_path, temp_path / "bundle/dist", location)
+    monkeypatch.setattr("ivaldi.shared.settings.set_platform_home", lambda value: setattr(value.dirs, "app", app) or value)
+
+    with pytest.raises(ValueError, match="relative application subdirectory"):
+        load_install_directories(settings, clean=True)
+
+    assert app.exists()

@@ -5,10 +5,11 @@ import platform
 import shutil
 import tomllib
 from pathlib import Path
+from typing import Any
 
 from ivaldi.shared.admin import user_home
 from ivaldi.types.enums import IVALDI
-from ivaldi.types.settings import UV, UVX, App, Directories, Nuitka, Platform, Python, Settings
+from ivaldi.types.settings import UV, UVX, App, Directories, Nuitka, Platform, Python, Settings, require
 
 system = platform.system()
 logger = logging.getLogger(__name__)
@@ -16,31 +17,22 @@ SCHEMA_URL = "https://raw.githubusercontent.com/FionnT/Ivaldi/main/ivaldi.schema
 GENERATED_CONFIG_HEADER = "# Generated from [tool.ivaldi] in pyproject.toml"
 
 
-def ensure_path(home: Path, exec_dir: Path):
-    for profile in [".zshrc", ".bash_profile", ".bashrc"]:
-        config = home / profile
-        config.touch(exist_ok=True)
-        if config.exists() and config.is_file():
-            with config.open("a") as c:
-                c.write(f'export PATH="$PATH:{exec_dir.resolve()!s}"')
-
-
-def set_platform_home(settings):
+def set_platform_home(settings: Settings) -> Settings:
+    location = require(settings.platform.location, "platform.location")
 
     if system == "Darwin":
         home = user_home()
-        settings.dirs.exec = (home / "bin").resolve()
-        ensure_path(home, settings.dirs.exec)
-        settings.dirs.app = home / "Library" / "Application Support" / settings.platform.location
+        settings.dirs.exec = home / ".local" / "bin"
+        settings.dirs.app = home / "Library" / "Application Support" / location
     elif system == "Windows":
-        settings.dirs.app = Path(os.environ["APPDATA"]) / settings.platform.location
+        # Not %LOCALAPPDATA%/<location>: Nuitka extracts the one-file launcher there.
+        settings.dirs.app = Path(os.environ["LOCALAPPDATA"]) / "Programs" / location
         settings.dirs.exec = (Path(os.environ["LOCALAPPDATA"]) / "Microsoft" / "WindowsApps").resolve()
     elif system == "Linux":
         home = user_home()
         settings.dirs.exec = home / ".local" / "bin"
-        ensure_path(home, settings.dirs.exec)
 
-        settings.dirs.app = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / settings.platform.location
+        settings.dirs.app = Path(os.environ.get("XDG_DATA_HOME", home / ".local" / "share")) / location
     else:
         raise RuntimeError(f"Unsupported platform: {system}")
 
@@ -60,7 +52,7 @@ def set_platform_home(settings):
     return settings
 
 
-def format_toml_value(value) -> str:
+def format_toml_value(value: object) -> str:
     """Serialize a supported Ivaldi configuration value as TOML."""
     if isinstance(value, str):
         return json.dumps(value, ensure_ascii=False)
@@ -80,7 +72,7 @@ def format_toml_key(key: str) -> str:
     return json.dumps(key, ensure_ascii=False)
 
 
-def append_toml_table(lines: list[str], path: tuple[str, ...], values: dict) -> None:
+def append_toml_table(lines: list[str], path: tuple[str, ...], values: dict[str, Any]) -> None:
     """Append one configuration table and its nested tables."""
     scalar_values = {key: value for key, value in values.items() if not isinstance(value, dict)}
     nested_values = {key: value for key, value in values.items() if isinstance(value, dict)}
@@ -94,7 +86,7 @@ def append_toml_table(lines: list[str], path: tuple[str, ...], values: dict) -> 
         append_toml_table(lines, (*path, key), value)
 
 
-def write_ivaldi_config(config: dict, destination: Path) -> Path:
+def write_ivaldi_config(config: dict[str, Any], destination: Path) -> Path:
     """Write an extracted ``tool.ivaldi`` table as standalone TOML."""
     lines = [f"#:schema {SCHEMA_URL}", GENERATED_CONFIG_HEADER, ""]
     append_toml_table(lines, (), config)
@@ -133,7 +125,7 @@ def find_build_file(start: Path | None = None) -> Path:
     raise FileNotFoundError(f"Could not find ivaldi.toml or [tool.ivaldi] in pyproject.toml in {directory} or any parent directory")
 
 
-def handle_required_settings(settings):
+def handle_required_settings(settings: Settings):
     missing = []
     if not settings.app.entrypoint:
         missing.append("app.entrypoint")
@@ -147,7 +139,7 @@ def handle_required_settings(settings):
         raise ValueError(f"Missing required Ivaldi setting(s): {', '.join(missing)}")
 
 
-def parse_settings(config_file: Path, project_folder: Path, dist: Path, stage: Path, output: Path) -> Settings:
+def parse_settings(config_file: Path, project_folder: Path, dist: Path, stage: Path | None, output: Path | None) -> Settings:
     with open(config_file, "rb") as f:
         config = tomllib.load(f)
 
@@ -179,12 +171,12 @@ def parse_settings(config_file: Path, project_folder: Path, dist: Path, stage: P
         return settings
 
 
-def load_settings(location: Path, build=False) -> Settings:
+def load_settings(location: Path, build: bool = False) -> Settings:
 
-    dist = None
-    stage = None
-    output = None
-    project_folder = None
+    stage: Path | None = None
+    output: Path | None = None
+    dist: Path
+    project_folder: Path
 
     if build:
         config_file = find_build_file()
@@ -202,11 +194,31 @@ def load_settings(location: Path, build=False) -> Settings:
     return parse_settings(config_file=config_file, project_folder=project_folder, dist=dist, stage=stage, output=output)
 
 
-def load_install_directories(settings: Settings):
+def check_application_location(settings: Settings) -> None:
+    """Ensure the configured location is a subdirectory, so removing it cannot touch shared directories."""
+    location_path = Path(require(settings.platform.location, "platform.location"))
+    if location_path.is_absolute() or location_path == Path(".") or ".." in location_path.parts:
+        raise ValueError("platform.location must be a relative application subdirectory")
+
+
+def remove_previous_install(settings: Settings, bundled_dist: Path) -> None:
+    """Delete the entire previous installation, leaving nothing behind."""
+    check_application_location(settings)
+    application_directory = settings.dirs.app
+    if application_directory.is_symlink() or application_directory.is_file():
+        application_directory.unlink()
+    elif application_directory.is_dir():
+        if bundled_dist.is_relative_to(application_directory.resolve()):
+            raise RuntimeError(f"Refusing to remove {application_directory}: the bundled installation payload is inside it")
+        shutil.rmtree(application_directory)
+
+
+def load_install_directories(settings: Settings, clean: bool = False) -> Settings:
     bundled_dist = settings.dirs.dist.resolve()
     settings = set_platform_home(settings)
+    if clean:
+        remove_previous_install(settings, bundled_dist)
 
-    settings.dirs.build = settings.dirs.app / "build"
     install_dist = settings.dirs.app / "dist"
 
     settings.dirs.app.mkdir(exist_ok=True, parents=True)
@@ -232,7 +244,7 @@ def load_install_directories(settings: Settings):
     return settings
 
 
-def load_runtime_directories(settings):
+def load_runtime_directories(settings: Settings) -> Settings:
     settings = set_platform_home(settings)
 
     return settings

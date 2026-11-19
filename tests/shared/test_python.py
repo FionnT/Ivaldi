@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -67,11 +68,12 @@ def test_find_python_rejects_interpreter_outside_install_directory(temp_path, mo
 
 def test_install_python_reports_install_failure(temp_path, monkeypatch):
     settings = make_python_settings(temp_path)
-    monkeypatch.setattr(
-        "ivaldi.shared.python.subprocess.run",
-        lambda *args, **kwargs: SimpleNamespace(returncode=3),
-    )
-    with pytest.raises(RuntimeError, match="Python install failed"):
+
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(3, args[0])
+
+    monkeypatch.setattr("ivaldi.shared.python.subprocess.run", fail)
+    with pytest.raises(RuntimeError, match="Python install failed - exited with code 3"):
         install_python(settings)
 
 
@@ -93,9 +95,16 @@ def test_install_python_sets_windows_interpreter_path(temp_path, monkeypatch):
 def test_install_python_reports_venv_failure(temp_path, monkeypatch):
     settings = make_python_settings(temp_path)
     managed = settings.dirs.bin / "managed/python"
-    results = iter([SimpleNamespace(returncode=0), SimpleNamespace(returncode=4)])
-    monkeypatch.setattr("ivaldi.shared.python.find_python", lambda value: managed)
-    monkeypatch.setattr("ivaldi.shared.python.subprocess.run", lambda *args, **kwargs: next(results))
+    calls = []
 
-    with pytest.raises(RuntimeError, match="Virtual environment creation failed"):
+    def run(command, **kwargs):
+        calls.append(command)
+        if len(calls) == 2:
+            raise subprocess.CalledProcessError(4, command)
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("ivaldi.shared.python.find_python", lambda value: managed)
+    monkeypatch.setattr("ivaldi.shared.python.subprocess.run", run)
+
+    with pytest.raises(RuntimeError, match="Virtual environment creation failed - exited with code 4"):
         install_python(settings)

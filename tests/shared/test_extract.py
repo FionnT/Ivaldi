@@ -56,3 +56,16 @@ def test_extract_rejects_unknown_archive(temp_path):
     archive.touch()
     with pytest.raises(ValueError, match="Unsupported archive"):
         extract(archive, temp_path / "bin")
+
+
+def test_extract_replaces_files_left_by_a_previous_install(temp_path):
+    destination = temp_path / "bin"
+    destination.mkdir()
+    (destination / "uv").write_text("old", encoding="utf-8")
+    archive = temp_path / "tool.zip"
+    with zipfile.ZipFile(archive, "w") as zipped:
+        zipped.writestr("uv", "new")
+
+    extract(archive, destination)
+
+    assert (destination / "uv").read_text(encoding="utf-8") == "new"

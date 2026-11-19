@@ -7,7 +7,7 @@ import pytest
 
 from ivaldi.shared.build import build_all_wheels, build_executable, build_project_wheel, get_configured_extras, get_executable_name, get_nuitka_metadata_args, get_or_build_uv, get_project_version, prepare_build
 from ivaldi.types.enums import IVALDI
-from ivaldi.types.settings import App, Nuitka
+from ivaldi.types.settings import UV, App, Nuitka
 
 
 def test_prepare_build_recreates_stage_and_payload(temp_path):
@@ -272,8 +272,8 @@ def test_build_executable_embeds_payload_and_uses_platform_alias(temp_path, monk
 
 def test_build_uv_downloads_configured_release_when_uv_is_not_on_path(temp_path, monkeypatch):
     settings = SimpleNamespace(
-        uv=SimpleNamespace(version="0.12.3"),
-        dirs=SimpleNamespace(dist=temp_path / "ivaldi/dist"),
+        uv=UV(version="0.12.3"),
+        dirs=SimpleNamespace(project=temp_path, dist=temp_path / "ivaldi/dist"),
     )
     settings.dirs.dist.mkdir(parents=True)
     calls = []

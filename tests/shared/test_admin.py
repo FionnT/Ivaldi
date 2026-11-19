@@ -4,7 +4,7 @@ from types import SimpleNamespace
 
 import pytest
 
-from ivaldi.shared.admin import is_admin, needs_admin, restore_sudo_ownership, run_elevated, sudo_user, user_home
+from ivaldi.shared.admin import claim_root_owned, is_admin, needs_admin, restore_sudo_ownership, run_elevated, sudo_user, user_home
 
 
 def test_admin_true_applies_to_install_and_run():
@@ -122,3 +122,31 @@ def test_restore_sudo_ownership_is_not_used_on_windows(monkeypatch, temp_path):
     )
 
     restore_sudo_ownership(temp_path)
+
+
+def test_claim_root_owned_chowns_only_root_owned_paths_below_home(monkeypatch, temp_path):
+    home = temp_path / "home"
+    nested = home / ".local" / "bin"
+    nested.mkdir(parents=True)
+    launcher = nested / "tool"
+    launcher.touch()
+    calls = []
+    monkeypatch.setattr("ivaldi.shared.admin.sudo_user", lambda: SimpleNamespace(uid=1001, gid=1002, home=home))
+    monkeypatch.setattr("ivaldi.shared.admin.os.chown", lambda path, uid, gid, follow_symlinks: calls.append(Path(path)))
+
+    class Status:
+        def __init__(self, uid):
+            self.st_uid = uid
+
+    owners = {launcher: 0, nested: 0, nested.parent: 1001}
+    monkeypatch.setattr(Path, "lstat", lambda self: Status(owners.get(self, 0)))
+
+    claim_root_owned(launcher, temp_path / "outside")
+
+    assert calls == [launcher, nested]
+
+
+def test_claim_root_owned_is_a_no_op_without_sudo(monkeypatch, temp_path):
+    monkeypatch.setattr("ivaldi.shared.admin.sudo_user", lambda: None)
+    monkeypatch.setattr("ivaldi.shared.admin.os.chown", lambda *_a, **_k: pytest.fail("must not chown"))
+    claim_root_owned(temp_path)

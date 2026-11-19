@@ -1,43 +1,50 @@
 exclude = [
-    ".bzr",
-    ".direnv",
-    ".eggs",
-    ".git",
-    ".git-rewrite",
-    ".hg",
-    ".ipynb_checkpoints",
-    ".mypy_cache",
-    ".nox",
-    ".pants.d",
-    ".pyenv",
-    ".pytest_cache",
-    ".pytype",
-    ".ruff_cache",
-    ".svn",
-    ".tox",
-    ".venv",
-    ".vscode",
-    "__pypackages__",
-    "_build",
-    "buck-out",
-    "build",
-    "dist",
-    "node_modules",
-    "site-packages",
-    "venv",
-    ".venv",
+  ".bzr",
+  ".direnv",
+  ".eggs",
+  ".git",
+  ".git-rewrite",
+  ".hg",
+  ".ipynb_checkpoints",
+  ".mypy_cache",
+  ".nox",
+  ".pants.d",
+  ".pyenv",
+  ".pytest_cache",
+  ".pytype",
+  ".ruff_cache",
+  ".svn",
+  ".tox",
+  ".venv",
+  ".vscode",
+  "__pypackages__",
+  "_build",
+  "buck-out",
+  "build",
+  "dist",
+  "node_modules",
+  "site-packages",
+  "venv",
+  ".venv",
+  "tests",
 ]
 
 # Same as Black.
-line-length = 320
+line-length = 180
 indent-width = 4
 
-# Assume Python 3.10
+# Assume Python 3.14
 target-version = "py314"
+
+###############
+#    LINTER   #
+###############
 
 [lint]
 # select = [...]  # See the Default Rules page for the full listing.
-ignore = []
+ignore = ["ANN401", "shebang-missing-executable-file"]
+extend-select = ["ANN", "PYI", "PGH003"]
+preview = true
 
 # Allow fix for all enabled rules (when `--fix`) is provided.
 fixable = ["ALL"]
@@ -45,6 +52,16 @@ unfixable = []
 
 # Allow unused variables when underscore-prefixed.
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.flake8-annotations]
+mypy-init-return = true        # Ignore missing return value for __init__...
+suppress-none-returning = true # Ignore missing return value for callable that returns None
+suppress-dummy-args = true     # Ignore missing types def on *args, and **kwargs...
+
+###############
+#  FORMATTER  #
+###############
+
 
 [format]
 # Like Black, use double quotes for strings.

@@ -26,7 +26,46 @@ def test_install_alias_adds_managed_alias_to_zshrc(temp_path, monkeypatch):
     assert installed == temp_path / "bin/my-command"
     assert installed.read_bytes() == b"launcher"
     assert os.access(installed, os.X_OK)
-    assert (temp_path / ".zshrc").read_text(encoding="utf-8") == (f"# >>> ivaldi alias: my-command >>>\nalias my-command={installed.resolve()}\n# <<< ivaldi alias: my-command <<<\n")
+    content = (temp_path / ".zshrc").read_text(encoding="utf-8")
+    assert content.startswith(f"# >>> ivaldi alias: my-command >>>\nalias my-command={installed.resolve()}\n# <<< ivaldi alias: my-command <<<\n")
+    assert content.count(f"# >>> ivaldi path: {temp_path / 'bin'} >>>") == 1
+
+
+def test_install_alias_path_entry_is_idempotent_and_keeps_existing_content(temp_path, monkeypatch):
+    executable = temp_path / "launcher"
+    executable.write_bytes(b"launcher")
+    config = temp_path / ".zshrc"
+    config.write_text("export KEEP=true", encoding="utf-8")  # no trailing newline
+    monkeypatch.setenv("SHELL", "/bin/zsh")
+    monkeypatch.setattr("ivaldi.shared.alias.Path.home", lambda: temp_path)
+    monkeypatch.setattr("ivaldi.shared.alias.platform.system", lambda: "Darwin")
+
+    install_alias(make_settings(temp_path), executable)
+    first = config.read_text(encoding="utf-8")
+    install_alias(make_settings(temp_path), executable)
+
+    assert config.read_text(encoding="utf-8") == first
+    assert first.startswith("export KEEP=true\n# >>> ivaldi alias")
+    assert first.count("export PATH=") == 1
+    assert not (temp_path / ".bashrc").exists()
+    assert not (temp_path / ".bash_profile").exists()
+
+
+@pytest.mark.skipif(shutil.which("sh") is None, reason="requires a POSIX shell")
+def test_posix_path_entry_adds_the_directory_once(temp_path):
+    import subprocess
+
+    from ivaldi.shared.alias import write_shell_path
+
+    directory = temp_path / "dir with space" / "bin"
+    config = temp_path / "rc"
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr("ivaldi.shared.alias.get_shell_config", lambda: (config, "posix"))
+        write_shell_path(directory)
+
+    script = f'PATH=/usr/bin:/bin; . {config}; . {config}; printf %s "$PATH"'
+    result = subprocess.run(["sh", "-c", script], capture_output=True, text=True, check=True)
+    assert result.stdout == f"/usr/bin:/bin:{directory}"
 
 
 def test_install_alias_replaces_its_existing_managed_block(temp_path, monkeypatch):

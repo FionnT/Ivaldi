@@ -2,17 +2,19 @@ import logging
 import shutil
 from pathlib import Path
 
+from ivaldi.types.settings import Settings, require
+
 logger = logging.getLogger(__name__)
 
 
-def _rule_specificity(rule):
+def _rule_specificity(rule: str) -> tuple[int, int, int]:
     """Rank path rules by how narrowly they describe a path."""
     literal_characters = sum(character not in "*?[]" for character in rule)
     wildcard_characters = sum(character in "*?[]" for character in rule)
     return literal_characters, -wildcard_characters, len(rule)
 
 
-def build_rules(settings):
+def build_rules(settings: Settings) -> tuple[set[str], dict[Path, list[str]]]:
     exclusion_rules = set()
     for rule in settings.app.exclude:
         rule = rule.rstrip("/")
@@ -30,7 +32,7 @@ def build_rules(settings):
     return exclusion_rules, include_rules_by_item
 
 
-def collect_files_to_include(exclusion_rules, include_rules_by_item, project):
+def collect_files_to_include(exclusion_rules: set[str], include_rules_by_item: dict[Path, list[str]], project: Path) -> list[Path]:
     included = sorted(include_rules_by_item)
     excluded = []
     collected = []
@@ -52,7 +54,7 @@ def collect_files_to_include(exclusion_rules, include_rules_by_item, project):
     return collected
 
 
-def ensure_required_files(collected, project: Path):
+def ensure_required_files(collected: list[Path], project: Path) -> list[Path]:
     """Add known project files, creating minimal build metadata when needed."""
     pyproject = project / "pyproject.toml"
     requirements = project / "requirements.txt"
@@ -63,7 +65,10 @@ def ensure_required_files(collected, project: Path):
 
     configuration = pyproject if pyproject.is_file() else requirements if requirements.is_file() else None
     if configuration is None:
-        project_name = "-".join(part for part in "".join(character.lower() if character.isascii() and character.isalnum() else "-" for character in project.name).split("-") if part) or "ivaldi-project"
+        project_name = (
+            "-".join(part for part in "".join(character.lower() if character.isascii() and character.isalnum() else "-" for character in project.name).split("-") if part)
+            or "ivaldi-project"
+        )
         logger.warning(
             "No pyproject.toml or requirements.txt found in %s; creating a minimal pyproject.toml and readme.md",
             project,
@@ -83,16 +88,17 @@ def ensure_required_files(collected, project: Path):
     return collected
 
 
-def collect(settings):
+def collect(settings: Settings) -> list[Path]:
     project = settings.dirs.project
 
     exclusion_rules, include_rules_by_item = build_rules(settings)
     collected = collect_files_to_include(exclusion_rules, include_rules_by_item, project)
     collected = ensure_required_files(collected, project)
 
+    stage = require(settings.dirs.stage, "dirs.stage")
     for item in collected:
         relative_path = item.relative_to(project)
-        build_path = settings.dirs.stage / relative_path
+        build_path = stage / relative_path
 
         if item.is_dir():
             build_path.mkdir(parents=True, exist_ok=True)

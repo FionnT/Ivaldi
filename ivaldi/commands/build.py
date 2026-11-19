@@ -8,7 +8,7 @@ from ivaldi.shared.settings import load_install_directories, load_settings
 logger = logging.getLogger(__name__)
 
 
-def build(location: Path):
+def build(location: Path) -> Path:
     settings = load_settings(location, build=True)
     settings = load_install_directories(settings)
     prepare_build(settings)

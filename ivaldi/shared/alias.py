@@ -7,6 +7,9 @@ import subprocess
 import tempfile
 from pathlib import Path
 
+from ivaldi.shared.admin import claim_root_owned
+from ivaldi.types.settings import Settings, require
+
 
 def command_name(alias: str) -> str:
     """Return the platform-specific filename used for a command alias."""
@@ -31,15 +34,8 @@ def get_shell_config() -> tuple[Path, str]:
     return home / ".profile", "posix"
 
 
-def write_shell_alias(alias: str, source: Path) -> Path:
-    """Create or replace an Ivaldi-managed alias in the shell startup file."""
-    config, syntax = get_shell_config()
-    quoted_source = shlex.quote(str(source))
-    command = f"alias {alias} {quoted_source}" if syntax == "fish" else f"alias {alias}={quoted_source}"
-    start_marker = f"# >>> ivaldi alias: {alias} >>>"
-    end_marker = f"# <<< ivaldi alias: {alias} <<<"
-    block = f"{start_marker}\n{command}\n{end_marker}\n"
-
+def upsert_managed_block(config: Path, start_marker: str, end_marker: str, block: str) -> Path:
+    """Create or replace an Ivaldi-managed block in a shell startup file."""
     content = config.read_text(encoding="utf-8") if config.is_file() else ""
     start = content.find(start_marker)
     end = content.find(end_marker, start + len(start_marker)) if start >= 0 else -1
@@ -57,7 +53,30 @@ def write_shell_alias(alias: str, source: Path) -> Path:
     return config
 
 
-def install_command(settings, source: Path, alias: str) -> Path:
+def write_shell_alias(alias: str, source: Path) -> Path:
+    """Create or replace an Ivaldi-managed alias in the shell startup file."""
+    config, syntax = get_shell_config()
+    quoted_source = shlex.quote(str(source))
+    command = f"alias {alias} {quoted_source}" if syntax == "fish" else f"alias {alias}={quoted_source}"
+    start_marker = f"# >>> ivaldi alias: {alias} >>>"
+    end_marker = f"# <<< ivaldi alias: {alias} <<<"
+    return upsert_managed_block(config, start_marker, end_marker, f"{start_marker}\n{command}\n{end_marker}\n")
+
+
+def write_shell_path(directory: Path) -> Path:
+    """Create or replace an idempotent Ivaldi-managed PATH entry in the shell startup file."""
+    config, syntax = get_shell_config()
+    quoted = shlex.quote(str(directory))
+    if syntax == "fish":
+        command = f"contains -- {quoted} $PATH; or set -gx PATH $PATH {quoted}"
+    else:
+        command = f'case ":$PATH:" in *:{quoted}:*) ;; *) export PATH="$PATH:"{quoted} ;; esac'
+    start_marker = f"# >>> ivaldi path: {directory} >>>"
+    end_marker = f"# <<< ivaldi path: {directory} <<<"
+    return upsert_managed_block(config, start_marker, end_marker, f"{start_marker}\n{command}\n{end_marker}\n")
+
+
+def install_command(settings: Settings, source: Path, alias: str) -> Path:
     """Copy a launcher into the configured command directory."""
     alias = command_name(alias)
     destination = settings.dirs.exec / alias
@@ -80,12 +99,12 @@ def install_command(settings, source: Path, alias: str) -> Path:
     return destination
 
 
-def install_alias(settings, executable: Path | None) -> Path | None:
+def install_alias(settings: Settings, executable: Path | None) -> Path | None:
     """Persist the configured launcher alias for the current platform."""
     if not settings.platform.add_to_path or executable is None:
         return None
 
-    alias = settings.platform.alias
+    alias = require(settings.platform.alias, "platform.alias")
     command_name(alias)
 
     source = executable.resolve()
@@ -94,7 +113,8 @@ def install_alias(settings, executable: Path | None) -> Path | None:
     destination = install_command(settings, source, alias)
     if platform.system() == "Windows":
         return destination
-    write_shell_alias(alias, destination)
+    configs = [write_shell_alias(alias, destination), write_shell_path(settings.dirs.exec)]
+    claim_root_owned(settings.dirs.exec, destination, *configs)
     return destination
 
 
@@ -143,7 +163,9 @@ def remove_command(destination: Path) -> None:
 
     with tempfile.NamedTemporaryFile(mode="w", suffix=".cmd", delete=False, encoding="utf-8") as file:
         cleanup = Path(file.name)
-        file.write(f'@echo off\nfor /L %%i in (1,1,60) do (\n  del /f /q "{destination}" >nul 2>nul\n  if not exist "{destination}" goto done\n  ping 127.0.0.1 -n 2 >nul\n)\n:done\ndel /f /q "%~f0"\n')
+        file.write(
+            f'@echo off\nfor /L %%i in (1,1,60) do (\n  del /f /q "{destination}" >nul 2>nul\n  if not exist "{destination}" goto done\n  ping 127.0.0.1 -n 2 >nul\n)\n:done\ndel /f /q "%~f0"\n'
+        )
     creation_flags = getattr(subprocess, "CREATE_NO_WINDOW", 0) | getattr(subprocess, "DETACHED_PROCESS", 0)
     try:
         subprocess.Popen(
@@ -156,12 +178,12 @@ def remove_command(destination: Path) -> None:
         raise
 
 
-def uninstall_alias(settings) -> Path | None:
+def uninstall_alias(settings: Settings) -> Path | None:
     """Remove the installed launcher command and managed shell aliases."""
     if not settings.platform.add_to_path:
         return None
 
-    alias = settings.platform.alias
+    alias = require(settings.platform.alias, "platform.alias")
     destination = settings.dirs.exec / command_name(alias)
     remove_command(destination)
     if platform.system() != "Windows":

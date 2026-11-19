@@ -133,11 +133,11 @@ All default settings and flags are visible in [the ivaldi settings dataclass](ht
     example: ["--compile",]
 [darwin, windows, linux]:
   location: 
-    description: The name for a specific subdirectory to install the project to, inside cache directory for that platform (e.g. $HOME/local/.bin)
+    description: The name for a specific subdirectory to install the project to, inside the per-user data directory for that platform (`~/Library/Application Support`, `$XDG_DATA_HOME` or `~/.local/share`, `%LOCALAPPDATA%`)
     type: str
     example: mycli
   add_to_path:
-    description: When true, Ivaldi copies the launcher into the platform bin directory (e.g. `~/.local/bin`, `~/.bin`)
+    description: When true, Ivaldi copies the launcher into the platform bin directory (`~/.local/bin` on macOS and Linux, `%LOCALAPPDATA%\Microsoft\WindowsApps` on Windows)
     type: bool
   alias: 
     description: In Unix-like systems, adds an idempotent managed alias pointing to that copy.

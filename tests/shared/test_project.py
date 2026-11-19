@@ -1,3 +1,4 @@
+import subprocess
 from pathlib import Path
 from types import SimpleNamespace
 from zipfile import ZipFile
@@ -144,9 +145,14 @@ def test_install_project_reports_nonzero_result(temp_path, monkeypatch):
         bin=SimpleNamespace(uv=Path("/bin/uv"), python=temp_path / "python"),
         dirs=SimpleNamespace(app=temp_path, dist=temp_path, uv=temp_path / "cache"),
     )
-    monkeypatch.setattr("ivaldi.shared.project.subprocess.run", lambda *args, **kwargs: SimpleNamespace(returncode=2))
-    with pytest.raises(RuntimeError, match="Project install failed"):
+
+    def fail(*args, **kwargs):
+        raise subprocess.CalledProcessError(2, args[0])
+
+    monkeypatch.setattr("ivaldi.shared.project.subprocess.run", fail)
+    with pytest.raises(RuntimeError, match="Project install failed - exited with code 2") as raised:
         install_project(settings)
+    assert isinstance(raised.value.__cause__, subprocess.CalledProcessError)
 
 
 def test_mark_installed_requires_manifest_and_records_wheel(temp_path):

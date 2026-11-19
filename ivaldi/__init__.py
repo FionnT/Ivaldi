@@ -18,7 +18,7 @@ location = Path(__file__).parent
 usage = "Usage: ivaldi {build,install,run} [args ...]"
 
 
-def main(args=None):
+def main(args: list[str] | None = None) -> int:
     arguments = sys.argv[1:] if args is None else args
     if not arguments or arguments[0] in {"-h", "--help"}:
         print(usage)
@@ -46,11 +46,11 @@ def install():
     _install(location)
 
 
-def run():
+def run() -> int:
     return _run(location)
 
 
-def application(args=None, executable=None):
+def application(args: list[str] | None = None, executable: Path | None = None) -> int:
     """Install the bundled application once, then run it with the given arguments."""
     arguments = list(sys.argv[1:] if args is None else args)
     launcher = Path(sys.argv[0] if executable is None else executable).resolve()
